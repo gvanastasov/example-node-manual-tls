@@ -1,0 +1,4 @@
+const tls = require('../src/server');
+
+const server = tls.createServer();
+server.listen(3000);

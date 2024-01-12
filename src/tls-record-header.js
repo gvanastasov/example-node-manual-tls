@@ -5,13 +5,6 @@ const ContentType = {
     ApplicationData: 0x17,
 };
 
-const TLSVersion = {
-    TLS_1_0: 0x0301,
-    TLS_1_1: 0x0302,
-    TLS_1_2: 0x0303,
-    TLS_1_3: 0x0304,
-};
-
 /**
  * @description Creates a TLS record header.
  * 1 byte - Handshake type;
@@ -31,4 +24,4 @@ function createRecordHeader(contentType, version, length) {
     return header;
 }
 
-module.exports = { ContentType, TLSVersion, createRecordHeader };
+module.exports = { ContentType, createRecordHeader };

@@ -1,43 +1,60 @@
 const net = require('net');
-const { ContentType, TLSVersion, createRecordHeader } = require('./record-header');
-
-const serverAddress = 'localhost';
-const serverPort = 3000;
+const { ContentType, createRecordHeader }       = require('./tls-record-header');
+const { HandshakeType, createHandshakeHeader }  = require('./tls-handshake-header');
+const { createClientVersionBuffer }             = require('./tls-client-version');
+const { TLSVersion }                            = require('./tls-version');
 
 function connect(address, port) {
   const client = new net.Socket();
   
-  function ClientHello() {
-    const recordHeader = createRecordHeader(ContentType.Handshake, TLSVersion.TLS_1_2, 0)
-    
+  function getClientHelloBuffer() {
+    const recordHeader    = createRecordHeader(ContentType.Handshake, TLSVersion.TLS_1_2, 0)
+    const handshakeHeader = createHandshakeHeader(HandshakeType.ClientHello, 0);
+    const clientVersion   = createClientVersionBuffer(TLSVersion.TLS_1_2);
+ 
     return Buffer.concat([
-      recordHeader
-    ])
+      recordHeader,
+      handshakeHeader,
+      clientVersion,
+    ]);
   }
 
-  // Step 0: client sends SYN
-  client.connect(serverPort, serverAddress, () => {
-    console.log('Client: Connected to server');
+  // Step 1
+  console.log('[client]: send SYN');
+  client.connect(port, address, () => {
+    console.log('[client]: connected...');
   
-    // Step 1: client receives SYN ACK
     client.on('data', data => {
-      const message = data.toString();
-      console.log(`Client: Received SYN ACK - ${message}`);
+      // Step 2
+
+      const buffer = Buffer.from(data, 'hex');
+      console.log(`[client]: received SYNACK - ${buffer}`);
+
+      // Split the buffer into individual bytes
+      const bytes = Array.from(buffer);
+      console.log(`[client]: received SYNACK - ${bytes}`);
+
+      // Log the result
+      console.log('Bytes:', bytes);
+      console.log(`[client]: received SYNACK - ${data.toString('hex')}`);
   
-      // Step 2: client send ACK & ClientHello message
-      let clientHello = ClientHello();
+      // Step 3
+      console.log(`[client]: send ACK & CLIENTHELLO - ${data.toString('hex')}`);
+      let clientHello = getClientHelloBuffer();
       client.write(clientHello);
   
       // Close the connection after sending the message
-      client.end();
+      // client.end();
     });
   });
   
   client.on('end', () => {
-    console.log('Client: Connection closed');
+    console.log('[client]: connection closed');
   });
   
   client.on('error', err => {
-    console.error('Client: Error -', err.message);
+    console.error('[client]: error -', err.message);
   });
 }
+
+module.exports = { connect }
