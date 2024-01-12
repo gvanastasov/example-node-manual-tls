@@ -1,8 +1,12 @@
+const { hexArray, hexStrategyMixin } = require('./utils');
+
 const ContentType = {
     Handshake: 0x16,
     ChangeCipherSpec: 0x14,
     Alert: 0x15,
     ApplicationData: 0x17,
+
+    ...hexStrategyMixin
 };
 
 /**
@@ -24,4 +28,17 @@ function createRecordHeader(contentType, version, length) {
     return header;
 }
 
-module.exports = { ContentType, createRecordHeader };
+function readRecordHeader(buffer) {
+    const contentType = buffer.readUInt8(0);
+    const version = buffer.readUInt16BE(1);
+    const payloadLength = buffer.readUInt16BE(3);
+
+    return {
+        _raw: hexArray(buffer.subarray(0, 5)),
+        contentType: ContentType.get(contentType),
+        version,
+        payloadLength
+    }
+}
+
+module.exports = { ContentType, createRecordHeader, parseRecordHeader: readRecordHeader };

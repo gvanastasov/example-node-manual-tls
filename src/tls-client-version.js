@@ -11,4 +11,4 @@ function createClientVersionBuffer(version) {
     return buffer;
 }
 
-module.exports = { TLSVersion, createClientVersionBuffer };
+module.exports = { createClientVersionBuffer };

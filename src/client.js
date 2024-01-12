@@ -3,6 +3,7 @@ const { ContentType, createRecordHeader }       = require('./tls-record-header')
 const { HandshakeType, createHandshakeHeader }  = require('./tls-handshake-header');
 const { createClientVersionBuffer }             = require('./tls-client-version');
 const { TLSVersion }                            = require('./tls-version');
+const { parseMessage }                          = require('./tls-message');
 
 function connect(address, port) {
   const client = new net.Socket();
@@ -22,30 +23,21 @@ function connect(address, port) {
   // Step 1
   console.log('[client]: send SYN');
   client.connect(port, address, () => {
-    console.log('[client]: connected...');
-  
-    client.on('data', data => {
-      // Step 2
+    client.on('data', handleDataReceived);
 
-      const buffer = Buffer.from(data, 'hex');
-      console.log(`[client]: received SYNACK - ${buffer}`);
-
-      // Split the buffer into individual bytes
-      const bytes = Array.from(buffer);
-      console.log(`[client]: received SYNACK - ${bytes}`);
-
-      // Log the result
-      console.log('Bytes:', bytes);
-      console.log(`[client]: received SYNACK - ${data.toString('hex')}`);
+    function handleDataReceived(data) {
+        // Step 2
+        console.log(`[client]: received SYN-ACK`);
+        parseMessage(data);
   
-      // Step 3
-      console.log(`[client]: send ACK & CLIENTHELLO - ${data.toString('hex')}`);
-      let clientHello = getClientHelloBuffer();
-      client.write(clientHello);
-  
-      // Close the connection after sending the message
-      // client.end();
-    });
+        // Step 3
+        console.log(`[client]: send ACK & CLIENTHELLO - ${data.toString('hex')}`);
+        let clientHello = getClientHelloBuffer();
+        client.write(clientHello);
+    
+        // Close the connection after sending the message
+        // client.end();
+    }
   });
   
   client.on('end', () => {
