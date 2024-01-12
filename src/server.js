@@ -9,6 +9,8 @@ function createServer({ hostname = 'localhost' } = {}) {
 
     function handleConnection(socket) {
         socket.on('data', onConnectionDataReceive); 
+        socket.on('error', onConnectionError);
+        socket.once('close', onConnectionClose);
 
         var remoteAddress = socket.remoteAddress + ':' + socket.remotePort; 
 
@@ -24,6 +26,14 @@ function createServer({ hostname = 'localhost' } = {}) {
             // Step 3: Server receives ACK & HELLOWORLD
             console.log(`[client]: received SYNACK - ${data.toString('hex')}`);
         };
+
+        function onConnectionError(err) {
+            console.log('[%s] connection error: %s', remoteAddress, err.message);  
+        }
+
+        function onConnectionClose() {  
+            console.log('[%s] connection closed.', remoteAddress);  
+        }
     };
 
     const address = () => {
