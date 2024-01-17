@@ -2,7 +2,7 @@ const net = require('net');
 const { ContentType, createRecordHeader }       = require('./tls-record-header');
 const { HandshakeType, createHandshakeHeader }  = require('./tls-handshake-header');
 const { TLSVersion, createClientVersion }       = require('./tls-version');
-const { parseMessage }                          = require('./tls-message');
+const { readMessage }                           = require('./tls-message');
 
 function connect(address, port) {
   const client = new net.Socket();
@@ -27,7 +27,7 @@ function connect(address, port) {
     function handleDataReceived(data) {
         // Step 2
         console.log(`[client]: received SYN-ACK`);
-        parseMessage(data);
+        readMessage(data);
   
         // Step 3
         console.log(`[client]: send ACK & CLIENTHELLO - ${data.toString('hex')}`);
