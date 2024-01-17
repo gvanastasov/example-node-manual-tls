@@ -1,8 +1,7 @@
 const net = require('net');
 const { ContentType, createRecordHeader }       = require('./tls-record-header');
 const { HandshakeType, createHandshakeHeader }  = require('./tls-handshake-header');
-const { createClientVersionBuffer }             = require('./tls-client-version');
-const { TLSVersion }                            = require('./tls-version');
+const { TLSVersion, createClientVersion }       = require('./tls-version');
 const { parseMessage }                          = require('./tls-message');
 
 function connect(address, port) {
@@ -11,7 +10,7 @@ function connect(address, port) {
   function getClientHelloBuffer() {
     const recordHeader    = createRecordHeader(ContentType.Handshake, TLSVersion.TLS_1_2, 0)
     const handshakeHeader = createHandshakeHeader(HandshakeType.ClientHello, 0);
-    const clientVersion   = createClientVersionBuffer(TLSVersion.TLS_1_2);
+    const clientVersion   = createClientVersion(TLSVersion.TLS_1_2);
  
     return Buffer.concat([
       recordHeader,

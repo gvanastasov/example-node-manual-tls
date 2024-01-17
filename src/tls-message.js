@@ -1,4 +1,4 @@
-const { parseRecordHeader } = require('./tls-record-header');
+const { readRecordHeader } = require('./tls-record-header');
 const { hexArray } = require('./utils');
 
 function parseMessage(hexString) {
@@ -16,7 +16,7 @@ function parseMessage(hexString) {
     const message = {
         _raw: hexArray(buffer),
         headers: {
-            record: parseRecordHeader(buffer),
+            record: readRecordHeader(buffer),
         },
         payload: payload
     }

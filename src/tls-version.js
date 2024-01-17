@@ -1,3 +1,5 @@
+const { hexStrategyMixin } = require('./utils');
+
 /**
  * @description primary TLS versions that have been widely adopted. 
  * However, it's important to note that using older versions like 
@@ -46,6 +48,21 @@ const TLSVersion = {
      * Released: March 2018
      */
     TLS_1_3: 0x0304,
+
+    ...hexStrategyMixin,
 };
 
-module.exports = { TLSVersion };
+/**
+ * @description specifies the senders version of TSL
+ * 2 bytes - for version [major, minor]
+ * 
+ * @param {int} version 
+ * @returns 
+ */
+function createClientVersion(version) {
+    const buffer = Buffer.alloc(2);
+    buffer.writeUInt16BE(version, 0);
+    return buffer;
+}
+
+module.exports = { TLSVersion, createClientVersion };

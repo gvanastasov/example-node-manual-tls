@@ -1,4 +1,5 @@
 const { hexArray, hexStrategyMixin } = require('./utils');
+const { TLSVersion } = require('./tls-version');
 
 const ContentType = {
     Handshake: 0x16,
@@ -36,9 +37,9 @@ function readRecordHeader(buffer) {
     return {
         _raw: hexArray(buffer.subarray(0, 5)),
         contentType: ContentType.get(contentType),
-        version,
+        version: TLSVersion.get(version),
         payloadLength
     }
 }
 
-module.exports = { ContentType, createRecordHeader, parseRecordHeader: readRecordHeader };
+module.exports = { ContentType, createRecordHeader, readRecordHeader };
