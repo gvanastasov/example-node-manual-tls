@@ -1,2 +1,18 @@
 # example-node-manual-tls
- A dummy example of TLS implementation. Reminder don't use this in production.
+A dummy example of TLS implementation. Reminder don't use this in production.
+
+## The play (ping-pong):
+
+Phase 1: three-way handshake, which is a process used to establish a connection between two devices on a network.
+
+1. Alice waves to Bob.
+> client send `SYN` (TCP packet containing a synchronize flag) to server, aka tries to connect to server
+
+2. Bob waves back to Alice.
+> server sends `SYN-ACK` (TCP packet containing the synchronize and acknowledge flags set) to client, aka accepts connection
+
+3. Alice nods her head, and says 'Hello' to Bob. 
+> client sends `ACK` (TCP packet containing an acknowledge flag) followed by `CLIENT_HELLO` message (protocol_version; random_data; session_id; cipher_suites; compression_methods; extensions;)
+
+4. Bob replies back with 'Hello' to Alice.
+> server sends `SERVER_HELLO` message can follow the requested protocol, or closes connection if not.
