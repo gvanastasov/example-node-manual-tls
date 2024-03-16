@@ -26,4 +26,16 @@ const hexStrategyMixin = {
     }
 }
 
-module.exports = { hexArray, hexValue, hexStrategyMixin };
+function removeRawProperties(obj) {
+    for (let key in obj) {
+        if (obj.hasOwnProperty(key)) {
+            if (key === '_raw') {
+                delete obj[key];
+            } else if (typeof obj[key] === 'object') {
+                removeRawProperties(obj[key]); // Recursively remove _raw properties in nested objects
+            }
+        }
+    }
+}
+
+module.exports = { hexArray, hexValue, hexStrategyMixin, removeRawProperties };

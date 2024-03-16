@@ -1,8 +1,17 @@
 const net = require('net');
 const os = require('os');
-const { TLS_HANDSHAKE_STATE } = require('./tls-handshake-state');
+const { 
+    parseMessage, 
+    versions
+} = require('./tls');
+const { ContentType } = require('./tls-record-header');
+const { HandshakeType } = require('./tls-handshake-header');
 
 function createServer({ hostname = 'localhost' } = {}) {
+    const config = {
+        version: versions.TLS_1_2,
+    }
+
     const server = net.createServer();
     server.on('connection', handleConnection);
     
@@ -21,14 +30,9 @@ function createServer({ hostname = 'localhost' } = {}) {
         socket.on('error', onConnectionError);
         socket.once('close', onConnectionClose);
 
-        var state = TLS_HANDSHAKE_STATE.AWAITING_CLIENT_HELLO;
-        var stateMachine = {
-            [TLS_HANDSHAKE_STATE.AWAITING_CLIENT_HELLO]: handleClientHello,
-        }
-
         function onConnectionDataReceive (data) {
-            // todo: parse data
-            stateMachine[state](data);
+            let message = parseMessage(data);
+            handleMessage(message);
         };
 
         function onConnectionError(err) {
@@ -39,11 +43,34 @@ function createServer({ hostname = 'localhost' } = {}) {
             console.log('[%s] connection closed.', remoteAddress);  
         }
 
-        function handleClientHello(data) {
+        function handleMessage(message) {
+            switch (message.headers.record.contentType.value) {
+                case ContentType.Handshake: 
+                {
+                    handleHandshake(message);
+                    break;
+                }
+                default: 
+                {
+                    console.error('Not implemented yet...');
+                    break;
+                }
+            }
+        }
+
+        function handleHandshake(message) {
+            switch (message.headers.handshake.type.value) {
+                case HandshakeType.ClientHello:
+                {
+                    handleClientHello(message);
+                }
+            }
+        }
+
+        function handleClientHello(message) {
             // Step 3: server receives ACK & CLIENT_HELLO
             console.log('[server]: received ACK & CLIENT_HELLO from client - [%s]', remoteAddress);
-            
-            // End
+
             // todo: close connection if protocol version not supported
 
             // Step 4: server sends SERVER_HELLO

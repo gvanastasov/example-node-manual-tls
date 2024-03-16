@@ -65,4 +65,14 @@ function createClientVersion(version) {
     return buffer;
 }
 
-module.exports = { TLSVersion, createClientVersion };
+/**
+ * @description reads the version from the buffer
+ * @param {Buffer} buffer 
+ * @returns 
+ */
+function readVersion(buffer) {
+    const version = buffer.readUInt16BE(0);
+    return TLSVersion.get(version);
+}
+
+module.exports = { TLSVersion, createClientVersion, readVersion };

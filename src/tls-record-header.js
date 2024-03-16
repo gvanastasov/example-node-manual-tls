@@ -78,11 +78,11 @@ function readRecordHeader(buffer) {
     const payloadLength = buffer.readUInt16BE(3);
 
     return {
-        _raw: hexArray(buffer.subarray(0, 5)),
+        _raw: hexArray(buffer),
         contentType: ContentType.get(contentType),
         version: TLSVersion.get(version),
         payloadLength
-    }
+    };
 }
 
 module.exports = { ContentType, createRecordHeader, readRecordHeader };
