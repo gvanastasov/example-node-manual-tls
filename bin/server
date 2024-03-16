@@ -1,4 +1,7 @@
 const tls = require('../src/server');
+const argv = require('yargs').argv;
 
+const port = argv.port || 3000;
 const server = tls.createServer();
-server.listen(3000);
+
+server.listen(port);

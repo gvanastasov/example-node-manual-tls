@@ -1,3 +1,5 @@
 const client = require('../src/client');
+const argv = require('yargs').argv;
 
-client.connect('localhost', 3000);
+const port = argv.port || 3000;
+client.connect('localhost', port);

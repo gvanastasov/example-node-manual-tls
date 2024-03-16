@@ -1,0 +1,24 @@
+{
+  "name": "example-node-manual-tls",
+  "version": "1.0.0",
+  "description": "A dummy example of TLS implementation. Reminder don't use this in production.",
+  "main": "index.js",
+  "scripts": {
+    "start:server": "node ./bin/server",
+    "connect:client": "node ./bin/client"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/gvanastasov/example-node-manual-tls.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/gvanastasov/example-node-manual-tls/issues"
+  },
+  "homepage": "https://github.com/gvanastasov/example-node-manual-tls#readme",
+  "dependencies": {
+    "yargs": "^17.7.2"
+  }
+}

@@ -1,6 +1,14 @@
 # example-node-manual-tls
 A dummy example of TLS implementation. Reminder don't use this in production.
 
+## Getting started
+```sh
+npm run start:server
+npm run connect:client
+```
+
+> Server and client are using port 3000, if that is not available for you, just pass an arg `cmd -- --port=x`, and of course make sure you start the server and connect the client on that very same port...
+
 ## The play (ping-pong):
 
 Phase 1: three-way handshake, which is a process used to establish a connection between two devices on a network.
