@@ -5,6 +5,7 @@ const { TLSVersion } = require('./tls-version');
 const { CipherSuits } = require('./tls-ciphers');
 const { CompressionMethods } = require('./tls-compression');
 const { createMessage, parseMessage } = require('./tls');
+const { BUFFERS } = require('./tls-buffers');
 
 function connect(address, port) {
   const client = new net.Socket();
@@ -33,7 +34,6 @@ function connect(address, port) {
     sendClientHello();
 
     function handleDataReceived(data) {
-      // todo: parse data
       let message = parseMessage(data);
 
       switch (message.headers.record.contentType.value) {
@@ -54,24 +54,15 @@ function connect(address, port) {
         contentType: ContentType.Handshake,
         version: config.tlsVersion
       })
-        .handshake({
-          handshakeType: HandshakeType.ClientHello
-        })
-        .version({
-          version: config.tlsVersion
-        })
-        .random()
+        .append(BUFFERS.HANDSHAKE_HEADER, { type: HandshakeType.ClientHello, length: 0 })
+        .append(BUFFERS.VERSION, { version: config.tlsVersion })
+        .append(BUFFERS.RANDOM)
         // todo: pass existing session id if available
-        .sessionId()
-        .cipherSuites({
-          cs: config.cipherSuites
-        })
-        .compressionMethods({
-          methods: config.compressionMethods
-        })
-        .build();
+        .append(BUFFERS.SESSION_ID)
+        .append(BUFFERS.CIPHERS, { ciphers: config.cipherSuites })
+        .append(BUFFERS.COMPRESSION, { methods: config.compressionMethods });
 
-      client.write(message);
+      client.write(message.buffer);
     }
   });
 

@@ -5,6 +5,7 @@ const { ContentType } = require('./tls-record-header');
 const { HandshakeType } = require('./tls-handshake-header');
 const { ALERT_LEVEL, ALERT_DESCRIPTION } = require('./tls-alert');
 const { createMessage, parseMessage } = require('./tls-message');
+const { BUFFERS } = require('./tls-buffers');
 
 function createServer({ hostname = 'localhost' } = {}) {
     const config = {
@@ -70,18 +71,18 @@ function createServer({ hostname = 'localhost' } = {}) {
             // Step 3: server receives ACK & CLIENT_HELLO
             console.log('[server]: received ACK & CLIENT_HELLO from client - [%s]', remoteAddress);
 
-            if (message.client.version.value !== config.version.value) {
+            if (message.client.version.value !== config.version) {
                 console.log('[server]: protocol version not supported - [%s]', remoteAddress);
                 socket.write(
                     createMessage({ 
                         contentType: ContentType.Alert, 
                         version: config.version 
                     })
-                        .alert({
+                        .append(BUFFERS.ALERT, {
                             level: ALERT_LEVEL.FATAL, 
                             description: ALERT_DESCRIPTION.PROTOCOL_VERSION 
                         })
-                        .build()
+                        .buffer
                 );
                 socket.end();
                 return;

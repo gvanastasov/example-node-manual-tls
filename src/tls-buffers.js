@@ -1,5 +1,5 @@
 const BUFFERS = {
-    ALLERT: 'alert',
+    ALERT: 'alert',
     CIPHERS: 'ciphers',
     COMPRESSION: 'compression',
     HANDSHAKE_HEADER: 'handshakeHeader',
@@ -10,7 +10,7 @@ const BUFFERS = {
 }
 
 const modules = {
-    [BUFFERS.ALLERT]: require('./tls-alert'),
+    [BUFFERS.ALERT]: require('./tls-alert'),
     [BUFFERS.CIPHERS]: require('./tls-ciphers'),
     [BUFFERS.COMPRESSION]: require('./tls-compression'),
     [BUFFERS.HANDSHAKE_HEADER]: require('./tls-handshake-header'),

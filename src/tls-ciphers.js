@@ -61,15 +61,15 @@ const CipherSuits = {
  * with each identifier representing a specific combination 
  * of cryptographic algorithms and parameters.
  * 
- * @param {Array} cipherSuite
+ * @param {Array} ciphers
  * @returns {Buffer} The TLS cipher suite.
  */
-function create(cipherSuite) {
-    const suite = Buffer.alloc(2 + cipherSuite.length * 2);
-    suite.writeUInt16BE(cipherSuite.length, 0);
+function create({ ciphers }) {
+    const suite = Buffer.alloc(2 + ciphers.length * 2);
+    suite.writeUInt16BE(ciphers.length, 0);
 
-    for (let i = 0; i < cipherSuite.length; i++) {
-        suite.writeUInt16BE(cipherSuite[i], 2 + (i * 2));
+    for (let i = 0; i < ciphers.length; i++) {
+        suite.writeUInt16BE(ciphers[i], 2 + (i * 2));
     }
 
     return suite;

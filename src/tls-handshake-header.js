@@ -56,13 +56,13 @@ const HandshakeType = {
  * 1 byte - Handshake type
  * 2 bytes - Placeholder for message length
  * 
- * @param {number} handshakeType
+ * @param {number} type
  * @param {number} length
  * @returns 
  */
-function create(handshakeType, length) {
+function create({ type, length }) {
     const header = Buffer.alloc(dim.len);
-    header.writeUInt8(handshakeType, 0);
+    header.writeUInt8(type, 0);
     header.writeUInt16BE(length, 1);
     return header;
 }

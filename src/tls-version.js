@@ -59,7 +59,7 @@ const TLSVersion = {
  * @param {int} version 
  * @returns 
  */
-function create(version) {
+function create({ version }) {
     const buffer = Buffer.alloc(2);
     buffer.writeUInt16BE(version, 0);
     return buffer;

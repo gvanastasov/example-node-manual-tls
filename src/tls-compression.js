@@ -26,7 +26,7 @@ const CompressionMethods = {
  * @param {Array} methods The compression methods to include in the section.
  * @returns {Buffer} The TLS compression methods section.
  */
-function create(methods) {
+function create({ methods }) {
     const length = methods.length;
     const buffer = Buffer.alloc(length + 1);
     buffer.writeUInt8(length, 0);

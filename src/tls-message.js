@@ -4,41 +4,13 @@ const { HandshakeType } = require('./tls-handshake-header');
 const { hexArray, removeRawProperties } = require('./utils');
 
 function createMessage({ contentType, version }) {
-    const recordHeader = create(BUFFERS.RECORD_HEADER, contentType, version, 0);
-    this.buffers = [recordHeader];
-
-    this.alert = ({ level, description }) => {
-        this.buffers.push(create(BUFFERS.ALLERT, { level, description }));
-        return this;
-    };
-    this.handshake = ({ handshakeType }) => {
-        this.buffers.push(create(BUFFERS.HANDSHAKE_HEADER, handshakeType, 0));
-        return this;
-    };
-    this.version = ({ version }) => {
-        this.buffers.push(create(BUFFERS.VERSION, version));
-        return this;
-    };
-    this.random = () => {
-        this.buffers.push(create(BUFFERS.RANDOM));
-        return this;
-    };
-    this.sessionId = () => {
-        this.buffers.push(create(BUFFERS.SESSION_ID));
-        return this;
-    };
-    this.cipherSuites = ({ cs }) => {
-        this.buffers.push(create(BUFFERS.CIPHERS, cs));
-        return this;
-    };
-    this.compressionMethods = ({ methods }) => {
-        this.buffers.push(create(BUFFERS.COMPRESSION, methods));
+    this.buffer = Buffer.alloc(0);
+    this.append = (b, ...args) => {
+        let buffer = create(b, ...args);
+        this.buffer = Buffer.concat([this.buffer, buffer]);
         return this;
     }
-    this.build = () => {
-        return Buffer.concat(this.buffers);
-    }
-
+    this.append(BUFFERS.RECORD_HEADER, contentType, version, 0);
     return this;
 }
 
@@ -133,7 +105,7 @@ function parseClientHello(message) {
 }
 
 function parseAlert(message) {
-    message.alert = read(BUFFERS.ALLERT, message);
+    message.alert = read(BUFFERS.ALERT, message);
 }
 
 module.exports = { createMessage, parseMessage }
