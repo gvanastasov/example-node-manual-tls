@@ -85,7 +85,29 @@ function createServer({ hostname = 'localhost' } = {}) {
             }
 
             // Step 4: server sends SERVER_HELLO
-            // todo: send server hello
+            console.log('[server]: send SERVER_HELLO to client - [%s]', remoteAddress);
+            let message = createMessage({
+                contentType: _k.CONTENT_TYPE.Handshake,
+                version: config.version
+            })
+                .append(_k.BUFFERS.HANDSHAKE_HEADER, { type: _k.HANDSHAKE_TYPE.ServerHello, length: 0 })
+                .append(_k.BUFFERS.VERSION, { version: config.version })
+                .append(_k.BUFFERS.RANDOM)
+                // todo: create session
+                .append(_k.BUFFERS.SESSION_ID)
+                .append(_k.BUFFERS.CIPHERS, { ciphers: _k.CIPHER_SUITES.TLS_RSA_WITH_AES_128_CBC_SHA })
+                .append(_k.BUFFERS.COMPRESSION, { method: _k.COMPRESSION_METHODS.NULL });
+
+            socket.write(message.buffer);
+
+            // Step 5: server sends CERTIFICATE
+            console.log('[server]: send CERTIFICATE to client - [%s]', remoteAddress);
+            message = createMessage({
+                contentType: _k.CONTENT_TYPE.Handshake,
+                version: config.version
+            })
+                .append(_k.BUFFERS.HANDSHAKE_HEADER, { type: _k.HANDSHAKE_TYPE.Certificate, length: 0 })
+                .append(_k.BUFFERS.CERTIFICATE);
         }
     };
 

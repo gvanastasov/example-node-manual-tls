@@ -10,6 +10,7 @@ function createMessage({ contentType, version }) {
         return this;
     }
     this.append(BUFFERS.RECORD_HEADER, contentType, version, 0);
+    // todo: add build cmd that updates idx 3 and 4 with buffer length
     return this;
 }
 

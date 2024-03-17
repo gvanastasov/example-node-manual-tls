@@ -31,6 +31,11 @@ function connect(address, port) {
       let message = parseMessage(data);
 
       switch (message.headers.record.contentType.value) {
+        case _k.CONTENT_TYPE.Handshake:
+          {
+            handleHandshake(message);
+            break;
+          }
         case _k.CONTENT_TYPE.Alert:
           {
             console.log(
@@ -39,6 +44,16 @@ function connect(address, port) {
               message.alert.description.name
             );
             break;
+          }
+      }
+    }
+
+    function handleHandshake(message) {
+      switch (message.headers.handshake.type.value) {
+          case _k.HANDSHAKE_TYPE.ServerHello:
+          {
+              handleServerHello(message);
+              break;
           }
       }
     }
@@ -57,6 +72,11 @@ function connect(address, port) {
         .append(_k.BUFFERS.COMPRESSION, { methods: config.compressionMethods });
 
       client.write(message.buffer);
+    }
+
+    function handleServerHello(message) {
+      console.log('[client]: received SERVER_HELLO from server - [%s%s]', address, port);
+      // todo: store session for reuse
     }
   });
 
