@@ -1,7 +1,31 @@
-const { ContentType, readRecordHeader } = require('./tls-record-header');
-const { HandshakeType, readHandshakeHeader } = require('./tls-handshake-header');
-const { readVersion } = require('./tls-version');
+const { ContentType, createRecordHeader, readRecordHeader } = require('./tls-record-header');
+const { HandshakeType, createHandshakeHeader, readHandshakeHeader } = require('./tls-handshake-header');
+const { createClientVersion, readVersion } = require('./tls-version');
+const { createRandom, readRandom } = require('./tls-random');
 const { hexArray, removeRawProperties } = require('./utils');
+
+function createMessage({ contentType, version }) {
+    const recordHeader = createRecordHeader(contentType, version, 0);
+    this.buffers = [recordHeader];
+
+    this.handshake = ({ handshakeType }) => {
+        this.buffers.push(createHandshakeHeader(handshakeType, 0));
+        return this;
+    };
+    this.version = ({ version }) => {
+        this.buffers.push(createClientVersion(version));
+        return this;
+    };
+    this.random = () => {
+        this.buffers.push(createRandom());
+        return this;
+    };
+    this.build = () => {
+        return Buffer.concat(this.buffers);
+    }
+
+    return this;
+}
 
 function parseMessage(hexString) {
     const buffer = Buffer.from(hexString, 'hex');
@@ -81,7 +105,8 @@ function parseHandshakeHeader(message) {
 function parseClientHello(message) {
     message.client = {
         version: readVersion(message.context.buffer.next(2)),
+        random: readRandom(message.context.buffer.next(32)),
     };
 }
 
-module.exports = { parseMessage }
+module.exports = { createMessage, parseMessage }

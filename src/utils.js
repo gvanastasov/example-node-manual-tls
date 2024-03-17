@@ -38,4 +38,9 @@ function removeRawProperties(obj) {
     }
 }
 
-module.exports = { hexArray, hexValue, hexStrategyMixin, removeRawProperties };
+module.exports = { 
+    hexArray, 
+    hexValue, 
+    hexStrategyMixin, 
+    removeRawProperties,
+};
