@@ -2,6 +2,7 @@ const { ContentType, createRecordHeader, readRecordHeader } = require('./tls-rec
 const { HandshakeType, createHandshakeHeader, readHandshakeHeader } = require('./tls-handshake-header');
 const { createClientVersion, readVersion } = require('./tls-version');
 const { createRandom, readRandom } = require('./tls-random');
+const { createSessionId, readSessionId } = require('./tls-session');
 const { hexArray, removeRawProperties } = require('./utils');
 
 function createMessage({ contentType, version }) {
@@ -18,6 +19,10 @@ function createMessage({ contentType, version }) {
     };
     this.random = () => {
         this.buffers.push(createRandom());
+        return this;
+    };
+    this.sessionId = () => {
+        this.buffers.push(createSessionId());
         return this;
     };
     this.build = () => {
@@ -106,6 +111,7 @@ function parseClientHello(message) {
     message.client = {
         version: readVersion(message.context.buffer.next(2)),
         random: readRandom(message.context.buffer.next(32)),
+        sessionId: readSessionId(message.context.buffer.next(1)),
     };
 }
 

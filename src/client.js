@@ -36,6 +36,8 @@ function connect(address, port) {
           version: TLSVersion.TLS_1_2
         })
         .random()
+        // todo: pass existing session id if available
+        .sessionId()
         .build();
 
       client.write(message);
