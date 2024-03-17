@@ -2,6 +2,7 @@ const net = require('net');
 const { ContentType, createRecordHeader } = require('./tls-record-header');
 const { HandshakeType, createHandshakeHeader } = require('./tls-handshake-header');
 const { TLSVersion, createClientVersion } = require('./tls-version');
+const { CipherSuits } = require('./tls-ciphers');
 const { createMessage, readMessage } = require('./tls-message');
 
 function connect(address, port) {
@@ -38,6 +39,11 @@ function connect(address, port) {
         .random()
         // todo: pass existing session id if available
         .sessionId()
+        .cipherSuites({
+          cs: [
+            CipherSuits.TLS_RSA_WITH_AES_128_CBC_SHA
+          ]
+        })
         .build();
 
       client.write(message);

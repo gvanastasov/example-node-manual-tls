@@ -3,6 +3,7 @@ const { HandshakeType, createHandshakeHeader, readHandshakeHeader } = require('.
 const { createClientVersion, readVersion } = require('./tls-version');
 const { createRandom, readRandom } = require('./tls-random');
 const { createSessionId, readSessionId } = require('./tls-session');
+const { createCipherSuites, readCipherSuites } = require('./tls-ciphers');
 const { hexArray, removeRawProperties } = require('./utils');
 
 function createMessage({ contentType, version }) {
@@ -23,6 +24,10 @@ function createMessage({ contentType, version }) {
     };
     this.sessionId = () => {
         this.buffers.push(createSessionId());
+        return this;
+    };
+    this.cipherSuites = ({ cs }) => {
+        this.buffers.push(createCipherSuites(cs));
         return this;
     };
     this.build = () => {
@@ -112,6 +117,7 @@ function parseClientHello(message) {
         version: readVersion(message.context.buffer.next(2)),
         random: readRandom(message.context.buffer.next(32)),
         sessionId: readSessionId(message.context.buffer.next(1)),
+        cipherSuites: readCipherSuites(message),
     };
 }
 
