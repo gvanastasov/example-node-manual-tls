@@ -4,6 +4,7 @@ const { createClientVersion, readVersion } = require('./tls-version');
 const { createRandom, readRandom } = require('./tls-random');
 const { createSessionId, readSessionId } = require('./tls-session');
 const { createCipherSuites, readCipherSuites } = require('./tls-ciphers');
+const { createCompressionMethods, readCompressionMethods } = require('./tls-compression');
 const { hexArray, removeRawProperties } = require('./utils');
 
 function createMessage({ contentType, version }) {
@@ -30,6 +31,10 @@ function createMessage({ contentType, version }) {
         this.buffers.push(createCipherSuites(cs));
         return this;
     };
+    this.compressionMethods = ({ methods }) => {
+        this.buffers.push(createCompressionMethods(methods));
+        return this;
+    }
     this.build = () => {
         return Buffer.concat(this.buffers);
     }
@@ -118,6 +123,7 @@ function parseClientHello(message) {
         random: readRandom(message.context.buffer.next(32)),
         sessionId: readSessionId(message.context.buffer.next(1)),
         cipherSuites: readCipherSuites(message),
+        compressionMethods: readCompressionMethods(message)
     };
 }
 

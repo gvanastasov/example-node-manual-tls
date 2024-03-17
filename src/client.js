@@ -3,6 +3,7 @@ const { ContentType } = require('./tls-record-header');
 const { HandshakeType } = require('./tls-handshake-header');
 const { TLSVersion } = require('./tls-version');
 const { CipherSuits } = require('./tls-ciphers');
+const { CompressionMethods } = require('./tls-compression');
 const { createMessage, readMessage } = require('./tls-message');
 
 function connect(address, port) {
@@ -12,6 +13,9 @@ function connect(address, port) {
     tlsVersion: TLSVersion.TLS_1_2,
     cipherSuites: [
       CipherSuits.TLS_RSA_WITH_AES_128_CBC_SHA
+    ],
+    compressionMethods: [
+      CompressionMethods.NULL
     ]
   }
 
@@ -48,6 +52,9 @@ function connect(address, port) {
         .sessionId()
         .cipherSuites({
           cs: config.cipherSuites
+        })
+        .compressionMethods({
+          methods: config.compressionMethods
         })
         .build();
 
