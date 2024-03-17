@@ -8,7 +8,7 @@ const { createMessage, parseMessage } = require('./tls-message');
 
 function createServer({ hostname = 'localhost' } = {}) {
     const config = {
-        version: TLSVersion.TLS_1_0,
+        version: TLSVersion.TLS_1_2,
     }
 
     const server = net.createServer();
