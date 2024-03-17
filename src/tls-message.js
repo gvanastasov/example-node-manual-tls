@@ -1,3 +1,4 @@
+const { create, read, BUFFERS } = require('./tls');
 const { ContentType, createRecordHeader, readRecordHeader } = require('./tls-record-header');
 const { HandshakeType, createHandshakeHeader, readHandshakeHeader } = require('./tls-handshake-header');
 const { createClientVersion, readVersion } = require('./tls-version');
@@ -11,6 +12,10 @@ function createMessage({ contentType, version }) {
     const recordHeader = createRecordHeader(contentType, version, 0);
     this.buffers = [recordHeader];
 
+    this.alert = ({ level, description }) => {
+        this.buffers.push(create(BUFFERS.ALLERT, { level, description }));
+        return this;
+    };
     this.handshake = ({ handshakeType }) => {
         this.buffers.push(createHandshakeHeader(handshakeType, 0));
         return this;
@@ -89,6 +94,11 @@ function parsePayload(message) {
             parseHandshakeHeader(message);
             break;
         }
+        case ContentType.Alert:
+        {
+            parseAlert(message);
+            break;   
+        }
         default: 
         {
             console.error('Not implemented yet...');
@@ -125,6 +135,10 @@ function parseClientHello(message) {
         cipherSuites: readCipherSuites(message),
         compressionMethods: readCompressionMethods(message)
     };
+}
+
+function parseAlert(message) {
+    message.alert = read(BUFFERS.ALLERT, message);
 }
 
 module.exports = { createMessage, parseMessage }

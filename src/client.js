@@ -4,7 +4,7 @@ const { HandshakeType } = require('./tls-handshake-header');
 const { TLSVersion } = require('./tls-version');
 const { CipherSuits } = require('./tls-ciphers');
 const { CompressionMethods } = require('./tls-compression');
-const { createMessage, readMessage } = require('./tls-message');
+const { createMessage, parseMessage } = require('./tls-message');
 
 function connect(address, port) {
   const client = new net.Socket();
@@ -34,6 +34,19 @@ function connect(address, port) {
 
     function handleDataReceived(data) {
       // todo: parse data
+      let message = parseMessage(data);
+
+      switch (message.headers.record.contentType.value) {
+        case ContentType.Alert:
+          {
+            console.log(
+              '[client]: received %s from server - %s', 
+              message.alert.level.name, 
+              message.alert.description.name
+            );
+            break;
+          }
+      }
     }
 
     function sendClientHello() {

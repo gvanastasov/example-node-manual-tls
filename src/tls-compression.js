@@ -43,7 +43,6 @@ function createCompressionMethods(methods) {
  */
 function readCompressionMethods(message) {
     let buffer = message.context.buffer.next(1);
-    console.log('buffer', message.context.buffer);
     let length = buffer.readUInt8(0);
     let methods = message.context.buffer.next(length);
     let compressionMethods = [];

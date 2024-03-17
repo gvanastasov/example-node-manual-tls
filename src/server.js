@@ -1,15 +1,14 @@
 const net = require('net');
 const os = require('os');
-const { 
-    parseMessage, 
-    versions
-} = require('./tls');
+const { TLSVersion } = require('./tls-version');
 const { ContentType } = require('./tls-record-header');
 const { HandshakeType } = require('./tls-handshake-header');
+const { ALERT_LEVEL, ALERT_DESCRIPTION } = require('./tls-alert');
+const { createMessage, parseMessage } = require('./tls-message');
 
 function createServer({ hostname = 'localhost' } = {}) {
     const config = {
-        version: versions.TLS_1_2,
+        version: TLSVersion.TLS_1_0,
     }
 
     const server = net.createServer();
@@ -71,8 +70,22 @@ function createServer({ hostname = 'localhost' } = {}) {
             // Step 3: server receives ACK & CLIENT_HELLO
             console.log('[server]: received ACK & CLIENT_HELLO from client - [%s]', remoteAddress);
 
-            // todo: close connection if protocol version not supported
-
+            if (message.client.version.value !== config.version.value) {
+                console.log('[server]: protocol version not supported - [%s]', remoteAddress);
+                socket.write(
+                    createMessage({ 
+                        contentType: ContentType.Alert, 
+                        version: config.version 
+                    })
+                        .alert({
+                            level: ALERT_LEVEL.FATAL, 
+                            description: ALERT_DESCRIPTION.PROTOCOL_VERSION 
+                        })
+                        .build()
+                );
+                socket.end();
+                return;
+            }
             // Step 4: server sends SERVER_HELLO
             // todo: send server hello
         }

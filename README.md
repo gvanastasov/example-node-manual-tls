@@ -24,3 +24,9 @@ Phase 1: three-way handshake, which is a process used to establish a connection 
 
 4. Bob replies back with 'Hello' to Alice.
 > server sends `SERVER_HELLO` message can follow the requested protocol, or closes connection if not.
+
+## Notes
+
+Protocol extensions which the server can use to take action, or enable new features, are omit.
+Most likely not all error cases are handled, with sending proper alert signal back to client.
+No self recover nor any retry logic in case of failed tls phase, connection is simply terminated.
