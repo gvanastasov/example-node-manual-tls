@@ -22,11 +22,15 @@ Phase 1: three-way handshake, which is a process used to establish a connection 
 3. Alice nods her head, and says 'Hello' to Bob. 
 > client sends `ACK` (TCP packet containing an acknowledge flag) followed by `CLIENT_HELLO` message (protocol_version; random_data; session_id; cipher_suites; compression_methods; extensions;)
 
-4. Bob replies back with 'Hello' to Alice.
-> server sends `SERVER_HELLO` message can follow the requested protocol, or closes connection if not.
+3.1 Bob has no clue what Alice is saying and he just turns away from her.
+> server sends `ALERT`, aka warn or error message to the client with short reasoning of why, ex. protocol mismatch.
+
+4. Bob replies back with 'Hello. Lets agree on English.' to Alice.
+> server sends `SERVER_HELLO` message, and creates session.
 
 ## Notes
 
 Protocol extensions which the server can use to take action, or enable new features, are omit.
 Most likely not all error cases are handled, with sending proper alert signal back to client.
 No self recover nor any retry logic in case of failed tls phase, connection is simply terminated.
+Cipher suit selection (and other handshake agreements) are omit - just a single direct match is used.
