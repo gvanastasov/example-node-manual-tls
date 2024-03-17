@@ -1,7 +1,22 @@
+const fs = require('fs');
+const path = require('path');
 const tls = require('../src/server');
 const argv = require('yargs').argv;
 
 const port = argv.port || 3000;
-const server = tls.createServer();
+const privateKeyPath = path.resolve(__dirname, 'certs', 'server-key.pem');
+const csrPath = path.resolve(__dirname, 'certs', 'server-csr.pem');
+const certPath = path.resolve(__dirname, 'certs', 'server-cert.pem');
+
+if (!fs.existsSync(privateKeyPath) || !fs.existsSync(csrPath) || !fs.existsSync(certPath)) {
+    console.error('Server certs not found...');
+    process.exit(1);
+}
+
+const server = tls.createServer({
+    key: fs.readFileSync(privateKeyPath),
+    csr: fs.readFileSync(csrPath),
+    cert: fs.readFileSync(certPath),
+});
 
 server.listen(port);

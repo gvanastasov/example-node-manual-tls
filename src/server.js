@@ -2,9 +2,12 @@ const net = require('net');
 const os = require('os');
 const { createMessage, parseMessage, _k } = require('./tls');
 
-function createServer({ hostname = 'localhost' } = {}) {
+function createServer({ hostname = 'localhost', key, csr, cert } = {}) {
     const config = {
         version: _k.PROTOCOL_VERSION.TLS_1_2,
+        key,
+        cert,
+        csr
     }
 
     const server = net.createServer();
@@ -86,6 +89,10 @@ function createServer({ hostname = 'localhost' } = {}) {
 
             // Step 4: server sends SERVER_HELLO
             console.log('[server]: send SERVER_HELLO to client - [%s]', remoteAddress);
+            sendServerHello();
+        }
+
+        function sendServerHello() {
             let message = createMessage({
                 contentType: _k.CONTENT_TYPE.Handshake,
                 version: config.version
@@ -95,19 +102,27 @@ function createServer({ hostname = 'localhost' } = {}) {
                 .append(_k.BUFFERS.RANDOM)
                 // todo: create session
                 .append(_k.BUFFERS.SESSION_ID)
-                .append(_k.BUFFERS.CIPHERS, { ciphers: _k.CIPHER_SUITES.TLS_RSA_WITH_AES_128_CBC_SHA })
-                .append(_k.BUFFERS.COMPRESSION, { method: _k.COMPRESSION_METHODS.NULL });
+                .append(_k.BUFFERS.CIPHERS, { ciphers: [_k.CIPHER_SUITES.TLS_RSA_WITH_AES_128_CBC_SHA] })
+                .append(_k.BUFFERS.COMPRESSION, { methods: [_k.COMPRESSION_METHODS.NULL] });
 
             socket.write(message.buffer);
 
             // Step 5: server sends CERTIFICATE
             console.log('[server]: send CERTIFICATE to client - [%s]', remoteAddress);
-            message = createMessage({
+            sendCertificate();
+        }
+
+        function sendCertificate() {
+            let message = createMessage({
                 contentType: _k.CONTENT_TYPE.Handshake,
                 version: config.version
             })
                 .append(_k.BUFFERS.HANDSHAKE_HEADER, { type: _k.HANDSHAKE_TYPE.Certificate, length: 0 })
                 .append(_k.BUFFERS.CERTIFICATE);
+
+            console.log(config.csr);
+
+            socket.write(message.buffer);
         }
     };
 

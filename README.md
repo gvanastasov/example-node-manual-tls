@@ -2,8 +2,30 @@
 A dummy example of TLS implementation. Reminder don't use this in production.
 
 ## Getting started
+1. Generate server (self-signed) certificate (you would need openssl installed)
+
+```sh
+cd ./bin && mkdir certs && cd ./certs
+
+# generate a private key (2048-bit RSA key)
+openssl genpkey -algorithm RSA -out server-key.pem -aes256
+
+# generate a Certificate Signing Request (CSR)
+openssl req -new -key server-key.pem -out server-csr.pem
+
+# generate a self-signed certificate valid for 365 days
+openssl x509 -req -days 365 -in server-csr.pem -signkey server-key.pem -out server-cert.pem
+```
+
+2. Run the server
+
 ```sh
 npm run start:server
+```
+
+3. Open a client connection
+
+```sh
 npm run connect:client
 ```
 
@@ -34,3 +56,4 @@ Protocol extensions which the server can use to take action, or enable new featu
 Most likely not all error cases are handled, with sending proper alert signal back to client.
 No self recover nor any retry logic in case of failed tls phase, connection is simply terminated.
 Cipher suit selection (and other handshake agreements) are omit - just a single direct match is used.
+Server is using self-signed certs (generated via OpenSSL).

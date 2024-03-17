@@ -1,3 +1,6 @@
+# Artefacts
+bin/certs/*
+
 # Logs
 logs
 *.log
