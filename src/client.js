@@ -1,12 +1,19 @@
 const net = require('net');
-const { ContentType, createRecordHeader } = require('./tls-record-header');
-const { HandshakeType, createHandshakeHeader } = require('./tls-handshake-header');
-const { TLSVersion, createClientVersion } = require('./tls-version');
+const { ContentType } = require('./tls-record-header');
+const { HandshakeType } = require('./tls-handshake-header');
+const { TLSVersion } = require('./tls-version');
 const { CipherSuits } = require('./tls-ciphers');
 const { createMessage, readMessage } = require('./tls-message');
 
 function connect(address, port) {
   const client = new net.Socket();
+
+  const config = {
+    tlsVersion: TLSVersion.TLS_1_2,
+    cipherSuites: [
+      CipherSuits.TLS_RSA_WITH_AES_128_CBC_SHA
+    ]
+  }
 
   // Step 1: client sends SYN to server
   console.log('[client]: send SYN');
@@ -28,21 +35,19 @@ function connect(address, port) {
     function sendClientHello() {
       let message = createMessage({
         contentType: ContentType.Handshake,
-        version: TLSVersion.TLS_1_2
+        version: config.tlsVersion
       })
         .handshake({
           handshakeType: HandshakeType.ClientHello
         })
         .version({
-          version: TLSVersion.TLS_1_2
+          version: config.tlsVersion
         })
         .random()
         // todo: pass existing session id if available
         .sessionId()
         .cipherSuites({
-          cs: [
-            CipherSuits.TLS_RSA_WITH_AES_128_CBC_SHA
-          ]
+          cs: config.cipherSuites
         })
         .build();
 
