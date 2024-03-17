@@ -30,15 +30,15 @@ In both TLS 1.2 and TLS 1.3, the Session ID length is typically kept relatively 
  * 
  */
 
-function createSessionId() {
+function create() {
     return Buffer.from([0x00]);
 }
 
-function readSessionId(buffer) {
+function read(buffer) {
     return {
         _raw: hexArray(buffer),
         length: buffer.readUInt8(0)
     };
 }
 
-module.exports = { createSessionId, readSessionId }
+module.exports = { create, read }

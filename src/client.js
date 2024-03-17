@@ -4,7 +4,7 @@ const { HandshakeType } = require('./tls-handshake-header');
 const { TLSVersion } = require('./tls-version');
 const { CipherSuits } = require('./tls-ciphers');
 const { CompressionMethods } = require('./tls-compression');
-const { createMessage, parseMessage } = require('./tls-message');
+const { createMessage, parseMessage } = require('./tls');
 
 function connect(address, port) {
   const client = new net.Socket();

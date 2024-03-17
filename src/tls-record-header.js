@@ -59,7 +59,7 @@ const ContentType = {
  * @param {number} length
  * @returns {Buffer} The TLS record header.
  */
-function createRecordHeader(contentType, version, length) {
+function create(contentType, version, length) {
     const header = Buffer.alloc(5);
     header.writeUInt8(contentType, 0);
     header.writeUInt16BE(version, 1);
@@ -72,7 +72,7 @@ function createRecordHeader(contentType, version, length) {
  * @param {Buffer} buffer
  * @returns an object representing record header
  */
-function readRecordHeader(buffer) {
+function read(buffer) {
     const contentType = buffer.readUInt8(0);
     const version = buffer.readUInt16BE(1);
     const payloadLength = buffer.readUInt16BE(3);
@@ -85,4 +85,4 @@ function readRecordHeader(buffer) {
     };
 }
 
-module.exports = { ContentType, createRecordHeader, readRecordHeader };
+module.exports = { ContentType, create, read };

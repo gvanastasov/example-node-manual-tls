@@ -28,7 +28,7 @@
  * 
  * @returns {Buffer}
  */
-function createRandom() {
+function create() {
     const timestamp = Math.floor(Date.now() / 1000);
     
     const timestampBytes = [
@@ -43,7 +43,7 @@ function createRandom() {
     return Buffer.from([...timestampBytes, ...randomBytes]);
 }
 
-function readRandom(buffer) {
+function read(buffer) {
     const timestampBytes = buffer.slice(0, 4);
     const timestamp = timestampBytes.readUInt32BE(0);
     const randomBytes = buffer.slice(4);
@@ -58,4 +58,4 @@ function generateRandomBytes(length) {
     return Array.from({ length }, () => Math.floor(Math.random() * 256));
 }
 
-module.exports = { createRandom, readRandom }
+module.exports = { create, read }

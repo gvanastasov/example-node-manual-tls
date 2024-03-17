@@ -64,7 +64,7 @@ const CipherSuits = {
  * @param {Array} cipherSuite
  * @returns {Buffer} The TLS cipher suite.
  */
-function createCipherSuites(cipherSuite) {
+function create(cipherSuite) {
     const suite = Buffer.alloc(2 + cipherSuite.length * 2);
     suite.writeUInt16BE(cipherSuite.length, 0);
 
@@ -80,7 +80,7 @@ function createCipherSuites(cipherSuite) {
  * @param {Object} message 
  * @returns 
  */
-function readCipherSuites(message) {
+function read(message) {
     let buffer = message.context.buffer.next(2);
     let length = buffer.readUInt16BE(0);
     let cipherBuffer = message.context.buffer.next(length * 2);
@@ -98,4 +98,4 @@ function readCipherSuites(message) {
     return cipherSuites;
 }
 
-module.exports = { CipherSuits, createCipherSuites, readCipherSuites };
+module.exports = { CipherSuits, create, read };

@@ -44,7 +44,7 @@ function createServer({ hostname = 'localhost' } = {}) {
 
         function handleMessage(message) {
             switch (message.headers.record.contentType.value) {
-                case ContentType.Handshake: 
+                case ContentType.Handshake:
                 {
                     handleHandshake(message);
                     break;
@@ -86,6 +86,7 @@ function createServer({ hostname = 'localhost' } = {}) {
                 socket.end();
                 return;
             }
+
             // Step 4: server sends SERVER_HELLO
             // todo: send server hello
         }

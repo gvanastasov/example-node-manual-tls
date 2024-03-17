@@ -60,7 +60,7 @@ const HandshakeType = {
  * @param {number} length
  * @returns 
  */
-function createHandshakeHeader(handshakeType, length) {
+function create(handshakeType, length) {
     const header = Buffer.alloc(dim.len);
     header.writeUInt8(handshakeType, 0);
     header.writeUInt16BE(length, 1);
@@ -72,7 +72,7 @@ function createHandshakeHeader(handshakeType, length) {
  * @param {Buffer} buffer 
  * @returns an object representing the handshake header
  */
-function readHandshakeHeader(buffer) {
+function read(buffer) {
     return {
         _raw: hexArray(buffer),
         type: HandshakeType.get(buffer.readUInt8(0)),
@@ -80,4 +80,4 @@ function readHandshakeHeader(buffer) {
     };
 }
 
-module.exports = { HandshakeType, createHandshakeHeader, readHandshakeHeader };
+module.exports = { HandshakeType, create, read };

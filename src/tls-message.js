@@ -1,15 +1,10 @@
-const { create, read, BUFFERS } = require('./tls');
-const { ContentType, createRecordHeader, readRecordHeader } = require('./tls-record-header');
-const { HandshakeType, createHandshakeHeader, readHandshakeHeader } = require('./tls-handshake-header');
-const { createClientVersion, readVersion } = require('./tls-version');
-const { createRandom, readRandom } = require('./tls-random');
-const { createSessionId, readSessionId } = require('./tls-session');
-const { createCipherSuites, readCipherSuites } = require('./tls-ciphers');
-const { createCompressionMethods, readCompressionMethods } = require('./tls-compression');
+const { create, read, BUFFERS } = require('./tls-buffers');
+const { ContentType } = require('./tls-record-header');
+const { HandshakeType } = require('./tls-handshake-header');
 const { hexArray, removeRawProperties } = require('./utils');
 
 function createMessage({ contentType, version }) {
-    const recordHeader = createRecordHeader(contentType, version, 0);
+    const recordHeader = create(BUFFERS.RECORD_HEADER, contentType, version, 0);
     this.buffers = [recordHeader];
 
     this.alert = ({ level, description }) => {
@@ -17,27 +12,27 @@ function createMessage({ contentType, version }) {
         return this;
     };
     this.handshake = ({ handshakeType }) => {
-        this.buffers.push(createHandshakeHeader(handshakeType, 0));
+        this.buffers.push(create(BUFFERS.HANDSHAKE_HEADER, handshakeType, 0));
         return this;
     };
     this.version = ({ version }) => {
-        this.buffers.push(createClientVersion(version));
+        this.buffers.push(create(BUFFERS.VERSION, version));
         return this;
     };
     this.random = () => {
-        this.buffers.push(createRandom());
+        this.buffers.push(create(BUFFERS.RANDOM));
         return this;
     };
     this.sessionId = () => {
-        this.buffers.push(createSessionId());
+        this.buffers.push(create(BUFFERS.SESSION_ID));
         return this;
     };
     this.cipherSuites = ({ cs }) => {
-        this.buffers.push(createCipherSuites(cs));
+        this.buffers.push(create(BUFFERS.CIPHERS, cs));
         return this;
     };
     this.compressionMethods = ({ methods }) => {
-        this.buffers.push(createCompressionMethods(methods));
+        this.buffers.push(create(BUFFERS.COMPRESSION, methods));
         return this;
     }
     this.build = () => {
@@ -80,7 +75,7 @@ function parseMessage(hexString) {
 
 function parseRecordHeader(message) {
     let buffer = message.context.buffer.next(5);
-    let record = readRecordHeader(buffer);
+    let record = read(BUFFERS.RECORD_HEADER, buffer);
 
     message.headers.record = record;
 
@@ -109,7 +104,7 @@ function parsePayload(message) {
 
 function parseHandshakeHeader(message) {
     let buffer = message.context.buffer.next(4);
-    let handshake = readHandshakeHeader(buffer);
+    let handshake = read(BUFFERS.HANDSHAKE_HEADER, buffer);
 
     message.headers.handshake = handshake;
 
@@ -129,11 +124,11 @@ function parseHandshakeHeader(message) {
 
 function parseClientHello(message) {
     message.client = {
-        version: readVersion(message.context.buffer.next(2)),
-        random: readRandom(message.context.buffer.next(32)),
-        sessionId: readSessionId(message.context.buffer.next(1)),
-        cipherSuites: readCipherSuites(message),
-        compressionMethods: readCompressionMethods(message)
+        version: read(BUFFERS.VERSION, message.context.buffer.next(2)),
+        random: read(BUFFERS.RANDOM, message.context.buffer.next(32)),
+        sessionId: read(BUFFERS.SESSION_ID, message.context.buffer.next(1)),
+        cipherSuites: read(BUFFERS.CIPHERS, message),
+        compressionMethods: read(BUFFERS.COMPRESSION, message)
     };
 }
 

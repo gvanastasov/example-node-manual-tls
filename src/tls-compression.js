@@ -26,7 +26,7 @@ const CompressionMethods = {
  * @param {Array} methods The compression methods to include in the section.
  * @returns {Buffer} The TLS compression methods section.
  */
-function createCompressionMethods(methods) {
+function create(methods) {
     const length = methods.length;
     const buffer = Buffer.alloc(length + 1);
     buffer.writeUInt8(length, 0);
@@ -41,7 +41,7 @@ function createCompressionMethods(methods) {
  * @param {Object} message
  * @returns {Buffer} The TLS compression methods section.
  */
-function readCompressionMethods(message) {
+function read(message) {
     let buffer = message.context.buffer.next(1);
     let length = buffer.readUInt8(0);
     let methods = message.context.buffer.next(length);
@@ -59,6 +59,6 @@ function readCompressionMethods(message) {
 
 module.exports = {
     CompressionMethods,
-    createCompressionMethods,
-    readCompressionMethods,
+    create,
+    read,
 };

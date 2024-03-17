@@ -59,7 +59,7 @@ const TLSVersion = {
  * @param {int} version 
  * @returns 
  */
-function createClientVersion(version) {
+function create(version) {
     const buffer = Buffer.alloc(2);
     buffer.writeUInt16BE(version, 0);
     return buffer;
@@ -70,9 +70,9 @@ function createClientVersion(version) {
  * @param {Buffer} buffer 
  * @returns 
  */
-function readVersion(buffer) {
+function read(buffer) {
     const version = buffer.readUInt16BE(0);
     return TLSVersion.get(version);
 }
 
-module.exports = { TLSVersion, createClientVersion, readVersion };
+module.exports = { TLSVersion, create, read };
