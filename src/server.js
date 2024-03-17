@@ -1,15 +1,10 @@
 const net = require('net');
 const os = require('os');
-const { TLSVersion } = require('./tls-version');
-const { ContentType } = require('./tls-record-header');
-const { HandshakeType } = require('./tls-handshake-header');
-const { ALERT_LEVEL, ALERT_DESCRIPTION } = require('./tls-alert');
-const { createMessage, parseMessage } = require('./tls-message');
-const { BUFFERS } = require('./tls-buffers');
+const { createMessage, parseMessage, _k } = require('./tls');
 
 function createServer({ hostname = 'localhost' } = {}) {
     const config = {
-        version: TLSVersion.TLS_1_2,
+        version: _k.PROTOCOL_VERSION.TLS_1_2,
     }
 
     const server = net.createServer();
@@ -45,7 +40,7 @@ function createServer({ hostname = 'localhost' } = {}) {
 
         function handleMessage(message) {
             switch (message.headers.record.contentType.value) {
-                case ContentType.Handshake:
+                case _k.CONTENT_TYPE.Handshake:
                 {
                     handleHandshake(message);
                     break;
@@ -60,7 +55,7 @@ function createServer({ hostname = 'localhost' } = {}) {
 
         function handleHandshake(message) {
             switch (message.headers.handshake.type.value) {
-                case HandshakeType.ClientHello:
+                case _k.HANDSHAKE_TYPE.ClientHello:
                 {
                     handleClientHello(message);
                 }
@@ -71,16 +66,17 @@ function createServer({ hostname = 'localhost' } = {}) {
             // Step 3: server receives ACK & CLIENT_HELLO
             console.log('[server]: received ACK & CLIENT_HELLO from client - [%s]', remoteAddress);
 
+            // Step 3.1: server protocol version not supported
             if (message.client.version.value !== config.version) {
                 console.log('[server]: protocol version not supported - [%s]', remoteAddress);
                 socket.write(
                     createMessage({ 
-                        contentType: ContentType.Alert, 
-                        version: config.version 
+                        contentType: _k.CONTENT_TYPE.Alert, 
+                        version: config.version
                     })
-                        .append(BUFFERS.ALERT, {
-                            level: ALERT_LEVEL.FATAL, 
-                            description: ALERT_DESCRIPTION.PROTOCOL_VERSION 
+                        .append(_k.BUFFERS.ALERT, {
+                            level: _k.ALERT_LEVEL.FATAL, 
+                            description: _k.ALERT_DESCRIPTION.PROTOCOL_VERSION 
                         })
                         .buffer
                 );

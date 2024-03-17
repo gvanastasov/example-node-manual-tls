@@ -1,22 +1,16 @@
 const net = require('net');
-const { ContentType } = require('./tls-record-header');
-const { HandshakeType } = require('./tls-handshake-header');
-const { TLSVersion } = require('./tls-version');
-const { CipherSuits } = require('./tls-ciphers');
-const { CompressionMethods } = require('./tls-compression');
-const { createMessage, parseMessage } = require('./tls');
-const { BUFFERS } = require('./tls-buffers');
+const { createMessage, parseMessage, _k } = require('./tls');
 
 function connect(address, port) {
   const client = new net.Socket();
 
   const config = {
-    tlsVersion: TLSVersion.TLS_1_2,
+    tlsVersion: _k.PROTOCOL_VERSION.TLS_1_2,
     cipherSuites: [
-      CipherSuits.TLS_RSA_WITH_AES_128_CBC_SHA
+      _k.CIPHER_SUITES.TLS_RSA_WITH_AES_128_CBC_SHA
     ],
     compressionMethods: [
-      CompressionMethods.NULL
+      _k.COMPRESSION_METHODS.NULL
     ]
   }
 
@@ -37,7 +31,7 @@ function connect(address, port) {
       let message = parseMessage(data);
 
       switch (message.headers.record.contentType.value) {
-        case ContentType.Alert:
+        case _k.CONTENT_TYPE.Alert:
           {
             console.log(
               '[client]: received %s from server - %s', 
@@ -51,16 +45,16 @@ function connect(address, port) {
 
     function sendClientHello() {
       let message = createMessage({
-        contentType: ContentType.Handshake,
+        contentType: _k.CONTENT_TYPE.Handshake,
         version: config.tlsVersion
       })
-        .append(BUFFERS.HANDSHAKE_HEADER, { type: HandshakeType.ClientHello, length: 0 })
-        .append(BUFFERS.VERSION, { version: config.tlsVersion })
-        .append(BUFFERS.RANDOM)
+        .append(_k.BUFFERS.HANDSHAKE_HEADER, { type: _k.HANDSHAKE_TYPE.ClientHello, length: 0 })
+        .append(_k.BUFFERS.VERSION, { version: config.tlsVersion })
+        .append(_k.BUFFERS.RANDOM)
         // todo: pass existing session id if available
-        .append(BUFFERS.SESSION_ID)
-        .append(BUFFERS.CIPHERS, { ciphers: config.cipherSuites })
-        .append(BUFFERS.COMPRESSION, { methods: config.compressionMethods });
+        .append(_k.BUFFERS.SESSION_ID)
+        .append(_k.BUFFERS.CIPHERS, { ciphers: config.cipherSuites })
+        .append(_k.BUFFERS.COMPRESSION, { methods: config.compressionMethods });
 
       client.write(message.buffer);
     }

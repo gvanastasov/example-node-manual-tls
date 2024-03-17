@@ -1,6 +1,5 @@
-const { create, read, BUFFERS } = require('./tls-buffers');
-const { ContentType } = require('./tls-record-header');
-const { HandshakeType } = require('./tls-handshake-header');
+const { create, read } = require('./tls-buffers');
+const { CONTENT_TYPE, BUFFERS, HANDSHAKE_TYPE } = require('./tls-constants');
 const { hexArray, removeRawProperties } = require('./utils');
 
 function createMessage({ contentType, version }) {
@@ -56,12 +55,12 @@ function parseRecordHeader(message) {
 
 function parsePayload(message) {
     switch (message.headers.record.contentType.value) {
-        case ContentType.Handshake: 
+        case CONTENT_TYPE.Handshake: 
         {
             parseHandshakeHeader(message);
             break;
         }
-        case ContentType.Alert:
+        case CONTENT_TYPE.Alert:
         {
             parseAlert(message);
             break;   
@@ -81,7 +80,7 @@ function parseHandshakeHeader(message) {
     message.headers.handshake = handshake;
 
     switch (handshake.type.value) {
-        case HandshakeType.ClientHello:
+        case HANDSHAKE_TYPE.ClientHello:
         {
             parseClientHello(message);
             break;
