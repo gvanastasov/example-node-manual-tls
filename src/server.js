@@ -25,6 +25,9 @@ function session() {
 function createServer({ hostname = 'localhost', key, csr, cert } = {}) {
     const config = {
         version: _k.PROTOCOL_VERSION.TLS_1_2,
+        cipherSuites: [
+            _k.CIPHER_SUITES.TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA
+        ],
         key,
         cert,
         csr
@@ -109,12 +112,33 @@ function createServer({ hostname = 'localhost', key, csr, cert } = {}) {
 
             // Step 4: server sends SERVER_HELLO
             console.log('[server]: send SERVER_HELLO to client - [%s]', remoteAddress);
-            sendServerHello();
+            sendServerHello(message);
         }
 
-        function sendServerHello() {
+        function sendServerHello(message) {
             let s = new session();
             sessions.push(s);
+
+            let negotiatedCipher = negotiateCipherSuite(
+                message.client.ciphers.value, config.cipherSuites);
+
+            // Step 4.1: server protocol version not supported
+            if (negotiatedCipher === null) {
+                console.log('[server]: unable to negotiate cipher suite - [%s]', remoteAddress);
+                socket.write(
+                    createMessage({ 
+                        contentType: _k.CONTENT_TYPE.Alert, 
+                        version: config.version
+                    })
+                        .append(_k.BUFFERS.ALERT, {
+                            level: _k.ALERT_LEVEL.FATAL, 
+                            description: _k.ALERT_DESCRIPTION.HANDSHAKE_FAILURE 
+                        })
+                        .buffer
+                );
+                socket.end();
+                return;
+            }
 
             let message = createMessage({
                 contentType: _k.CONTENT_TYPE.Handshake,
@@ -124,7 +148,7 @@ function createServer({ hostname = 'localhost', key, csr, cert } = {}) {
                 .append(_k.BUFFERS.VERSION, { version: config.version })
                 .append(_k.BUFFERS.RANDOM)
                 .append(_k.BUFFERS.SESSION_ID, { id: s.id })
-                .append(_k.BUFFERS.CIPHERS, { ciphers: [_k.CIPHER_SUITES.TLS_RSA_WITH_AES_128_CBC_SHA] })
+                .append(_k.BUFFERS.CIPHERS, { ciphers: [negotiatedCipher] })
                 .append(_k.BUFFERS.COMPRESSION, { methods: [_k.COMPRESSION_METHODS.NULL] });
 
             socket.write(message.buffer);
@@ -172,6 +196,17 @@ function createServer({ hostname = 'localhost', key, csr, cert } = {}) {
                 .append(_k.BUFFERS.HANDSHAKE_HEADER, { type: _k.HANDSHAKE_TYPE.DoneHello, length: 0 });
 
             socket.write(message.buffer);
+        }
+
+        function negotiateCipherSuite(clientSuites, serverSuites) {
+            for (let s of serverSuites) {
+                for (let c of clientSuites) {
+                    if (s.value === c.value) {
+                        return s;
+                    }
+                }
+            }
+            return null;
         }
     };
 

@@ -7,7 +7,8 @@ function connect(address, port) {
   const config = {
     tlsVersion: _k.PROTOCOL_VERSION.TLS_1_2,
     cipherSuites: [
-      _k.CIPHER_SUITES.TLS_RSA_WITH_AES_128_CBC_SHA
+      _k.CIPHER_SUITES.TLS_RSA_WITH_AES_128_CBC_SHA,
+      _k.CIPHER_SUITES.TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA,
     ],
     compressionMethods: [
       _k.COMPRESSION_METHODS.NULL
