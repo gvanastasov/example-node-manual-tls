@@ -34,6 +34,15 @@ const CipherSuits = {
      */
     TLS_RSA_WITH_AES_128_CBC_SHA: 0x002f,
 
+    /**
+     * @description
+     *      Key Exchange Algorithm: ECDHE
+     *      Authentication Algorithm: RSA
+     *      Bulk Encryption Algorithm: AES_128_CBC
+     *      Message Authentication Code (MAC) Algorithm: SHA
+     */
+    TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA: 0xc013,
+
     // note: there are a lot more one can add...
 
     ...hexStrategyMixin
