@@ -38,9 +38,14 @@ function removeRawProperties(obj) {
     }
 }
 
+function generateRandomBytes(length) {
+    return Array.from({ length }, () => Math.floor(Math.random() * 256));
+}
+
 module.exports = { 
     hexArray, 
     hexValue, 
     hexStrategyMixin, 
     removeRawProperties,
+    generateRandomBytes
 };

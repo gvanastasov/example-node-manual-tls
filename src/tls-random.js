@@ -1,3 +1,5 @@
+const { generateRandomBytes } = require('./utils');
+
 /**
  * @description The Client Random is sent in plaintext as 
  * part of the ClientHello message, allowing the server to 
@@ -52,10 +54,6 @@ function read(buffer) {
         timestamp: timestamp,
         randomBytes: randomBytes
     };
-}
-
-function generateRandomBytes(length) {
-    return Array.from({ length }, () => Math.floor(Math.random() * 256));
 }
 
 module.exports = { create, read }

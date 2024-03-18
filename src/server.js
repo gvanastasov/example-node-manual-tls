@@ -1,6 +1,26 @@
 const net = require('net');
 const os = require('os');
 const { createMessage, parseMessage, _k } = require('./tls');
+const { generateRandomBytes } = require('./utils');
+
+const sessions = [];
+
+function session() {
+    function generateId() {
+        const bytes = generateRandomBytes(8);
+        const timestamp = Date.now();
+        for (let i = 0; i < 8; i++) {
+            bytes.push((timestamp >> (i * 8)) & 0xFF);
+        }
+        return bytes;
+    }
+    
+    this.id = generateId();
+    this.clientRandom = null;
+    this.serverRandom = null;
+
+    return this;
+}
 
 function createServer({ hostname = 'localhost', key, csr, cert } = {}) {
     const config = {
@@ -93,6 +113,9 @@ function createServer({ hostname = 'localhost', key, csr, cert } = {}) {
         }
 
         function sendServerHello() {
+            let s = new session();
+            sessions.push(s);
+
             let message = createMessage({
                 contentType: _k.CONTENT_TYPE.Handshake,
                 version: config.version
@@ -100,8 +123,7 @@ function createServer({ hostname = 'localhost', key, csr, cert } = {}) {
                 .append(_k.BUFFERS.HANDSHAKE_HEADER, { type: _k.HANDSHAKE_TYPE.ServerHello, length: 0 })
                 .append(_k.BUFFERS.VERSION, { version: config.version })
                 .append(_k.BUFFERS.RANDOM)
-                // todo: create session
-                .append(_k.BUFFERS.SESSION_ID)
+                .append(_k.BUFFERS.SESSION_ID, { id: s.id })
                 .append(_k.BUFFERS.CIPHERS, { ciphers: [_k.CIPHER_SUITES.TLS_RSA_WITH_AES_128_CBC_SHA] })
                 .append(_k.BUFFERS.COMPRESSION, { methods: [_k.COMPRESSION_METHODS.NULL] });
 
@@ -118,9 +140,36 @@ function createServer({ hostname = 'localhost', key, csr, cert } = {}) {
                 version: config.version
             })
                 .append(_k.BUFFERS.HANDSHAKE_HEADER, { type: _k.HANDSHAKE_TYPE.Certificate, length: 0 })
-                .append(_k.BUFFERS.CERTIFICATE);
+                .append(_k.BUFFERS.CERTIFICATE, { cert: config.cert });
 
-            console.log(config.csr);
+            socket.write(message.buffer);
+
+            // Step 6: server sends SERVER_KEY_EXCHANGE
+            console.log('[server]: send SERVER_KEY_EXCHANGE to client - [%s]', remoteAddress);
+            sendServerKeyExchange();
+        }
+
+        function sendServerKeyExchange() {
+            let message = createMessage({
+                contentType: _k.CONTENT_TYPE.Handshake,
+                version: config.version
+            })
+                .append(_k.BUFFERS.HANDSHAKE_HEADER, { type: _k.HANDSHAKE_TYPE.ServerKeyExchange, length: 0 })
+            // todo: add server key exchange parameters
+
+            socket.write(message.buffer);
+
+            // Step 7: server sends SERVER_HELLO_DONE
+            console.log('[server]: send SERVER_HELLO_DONE to client - [%s]', remoteAddress);
+            sendServerHelloDone();
+        }
+
+        function sendServerHelloDone() {
+            let message = createMessage({
+                contentType: _k.CONTENT_TYPE.Handshake,
+                version: config.version
+            })
+                .append(_k.BUFFERS.HANDSHAKE_HEADER, { type: _k.HANDSHAKE_TYPE.DoneHello, length: 0 });
 
             socket.write(message.buffer);
         }

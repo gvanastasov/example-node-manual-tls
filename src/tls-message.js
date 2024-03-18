@@ -86,6 +86,11 @@ function parseHandshakeHeader(message) {
             parseClientHello(message);
             break;
         }
+        case HANDSHAKE_TYPE.ServerHello:
+        {
+            parseServerHello(message);
+            break;   
+        }
         default: 
         {
             console.error('Not implemented yet...');
@@ -98,9 +103,19 @@ function parseClientHello(message) {
     message.client = {
         version: read(BUFFERS.VERSION, message.context.buffer.next(2)),
         random: read(BUFFERS.RANDOM, message.context.buffer.next(32)),
-        sessionId: read(BUFFERS.SESSION_ID, message.context.buffer.next(1)),
+        sessionId: read(BUFFERS.SESSION_ID, message),
         cipherSuites: read(BUFFERS.CIPHERS, message),
         compressionMethods: read(BUFFERS.COMPRESSION, message)
+    };
+}
+
+function parseServerHello(message) {
+    message.server = {
+        version: read(BUFFERS.VERSION, message.context.buffer.next(2)),
+        random: read(BUFFERS.RANDOM, message.context.buffer.next(32)),
+        sessionId: read(BUFFERS.SESSION_ID, message),
+        cipherSuite: read(BUFFERS.CIPHERS, message),
+        compressionMethod: read(BUFFERS.COMPRESSION, message)
     };
 }
 

@@ -67,7 +67,7 @@ function connect(address, port) {
         .append(_k.BUFFERS.VERSION, { version: config.tlsVersion })
         .append(_k.BUFFERS.RANDOM)
         // todo: pass existing session id if available
-        .append(_k.BUFFERS.SESSION_ID)
+        .append(_k.BUFFERS.SESSION_ID, { id: '0' })
         .append(_k.BUFFERS.CIPHERS, { ciphers: config.cipherSuites })
         .append(_k.BUFFERS.COMPRESSION, { methods: config.compressionMethods });
 

@@ -13,6 +13,11 @@ const dim = {
  */
 const HandshakeType = {
     /**
+     * Indicates that the hello process is complete
+     */
+    DoneHello: 0x00,
+
+    /**
      * The client initiates the handshake process by sending 
      * a ClientHello message, indicating its intention to 
      * establish a secure connection.
