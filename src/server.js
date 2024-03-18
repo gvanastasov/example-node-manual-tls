@@ -95,19 +95,10 @@ function createServer({ hostname = 'localhost', key, csr, cert } = {}) {
             // Step 3.1: server protocol version not supported
             if (message.client.version.value !== config.version) {
                 console.log('[server]: protocol version not supported - [%s]', remoteAddress);
-                socket.write(
-                    createMessage({ 
-                        contentType: _k.CONTENT_TYPE.Alert, 
-                        version: config.version
-                    })
-                        .append(_k.BUFFERS.ALERT, {
-                            level: _k.ALERT_LEVEL.FATAL, 
-                            description: _k.ALERT_DESCRIPTION.PROTOCOL_VERSION 
-                        })
-                        .buffer
-                );
-                socket.end();
-                return;
+                return alert({
+                    level: _k.ALERT_LEVEL.FATAL, 
+                    description: _k.ALERT_DESCRIPTION.PROTOCOL_VERSION
+                });
             }
 
             // Step 4: server sends SERVER_HELLO
@@ -122,22 +113,13 @@ function createServer({ hostname = 'localhost', key, csr, cert } = {}) {
             let negotiatedCipher = negotiateCipherSuite(
                 message.client.ciphers.value, config.cipherSuites);
 
-            // Step 4.1: server protocol version not supported
+            // Step 4.1: unable to negotiate cipher suite
             if (negotiatedCipher === null) {
                 console.log('[server]: unable to negotiate cipher suite - [%s]', remoteAddress);
-                socket.write(
-                    createMessage({ 
-                        contentType: _k.CONTENT_TYPE.Alert, 
-                        version: config.version
-                    })
-                        .append(_k.BUFFERS.ALERT, {
-                            level: _k.ALERT_LEVEL.FATAL, 
-                            description: _k.ALERT_DESCRIPTION.HANDSHAKE_FAILURE 
-                        })
-                        .buffer
-                );
-                socket.end();
-                return;
+                return alert({ 
+                    level: _k.ALERT_LEVEL.FATAL, 
+                    description: _k.ALERT_DESCRIPTION.HANDSHAKE_FAILURE
+                });
             }
 
             let message = createMessage({
@@ -196,6 +178,21 @@ function createServer({ hostname = 'localhost', key, csr, cert } = {}) {
                 .append(_k.BUFFERS.HANDSHAKE_HEADER, { type: _k.HANDSHAKE_TYPE.DoneHello, length: 0 });
 
             socket.write(message.buffer);
+        }
+
+        function alert({ level, description }) {
+            socket.write(
+                createMessage({ 
+                    contentType: _k.CONTENT_TYPE.Alert, 
+                    version: config.version
+                })
+                    .append(_k.BUFFERS.ALERT, {
+                        level, 
+                        description, 
+                    })
+                    .buffer
+            );
+            socket.end();
         }
 
         function negotiateCipherSuite(clientSuites, serverSuites) {
