@@ -31,6 +31,8 @@ npm run connect:client
 
 > Server and client are using port 3000, if that is not available for you, just pass an arg `cmd -- --port=x`, and of course make sure you start the server and connect the client on that very same port...
 
+> You can review your server cert information via `openssl x509 -in server-cert.pem -text -noout` 
+
 ## The play (ping-pong):
 
 Phase 1: three-way handshake, which is a process used to establish a connection between two devices on a network.
@@ -49,6 +51,12 @@ Phase 1: three-way handshake, which is a process used to establish a connection 
 
 4. Bob replies back with 'Hello. Lets agree on English.' to Alice.
 > server sends `SERVER_HELLO` message, and creates session.
+
+5. Bob introduces his birth certificate, to ensure Alice, that he is actually Bob for real.
+> server sends `CERTIFICATE` message, containing information about the server (its identity, domain name) and its public key.
+    5.1 Alice read the certificate and validates it - since we are using self-signed certificate (using servers private_key), there is no Certificate Authority (CA) involved.
+
+6. Bob creates a secret phrase, so can speak to Alice, without anyone understanding (eavesdropping) them.
 
 ## Notes
 
