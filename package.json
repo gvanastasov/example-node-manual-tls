@@ -19,6 +19,7 @@
   },
   "homepage": "https://github.com/gvanastasov/example-node-manual-tls#readme",
   "dependencies": {
+    "dotenv": "^16.4.5",
     "yargs": "^17.7.2"
   }
 }

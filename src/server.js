@@ -159,21 +159,42 @@ function createServer({ hostname = 'localhost', key, csr, cert } = {}) {
         }
 
         function sendServerKeyExchange(s) {
+            // todo: use curve based on agreement in cipher suite and remove hardcoded value
             let { privateKey, publicKey } = generateEphemeralKeys('x25519');
             s.privateKey = privateKey;
             s.publicKey = publicKey;
-            s.publicExport = publicKey.export({ type: 'spki', format: 'pem' });
+            s.publicExport = publicKey.export({ type: 'spki', format: 'der' });
             
-            // use context instead of message
+            const passphrase = process.env.SERVER_PCERT_PASSPHRASE;
+            if (!passphrase) {
+                return alert({ 
+                    level: _k.ALERT_LEVEL.FATAL, 
+                    description: _k.ALERT_DESCRIPTION.INTERNAL_ERROR
+                });
+            }
+
+            // todo: use context instead of message
             let message = createMessage({
                 contentType: _k.CONTENT_TYPE.Handshake,
                 version: config.version
             })
                 .append(_k.BUFFERS.HANDSHAKE_HEADER, { type: _k.HANDSHAKE_TYPE.ServerKeyExchange, length: 0 })
-                .append(_k.BUFFERS.CURVE_INFO, { curve: 'x25519' })
+                // todo: use curve based on agreement in cipher suite
+                .append(_k.BUFFERS.CURVE_INFO, { curve: _k.ELLIPTIC_CURVES.x25519 })
                 .append(_k.BUFFERS.PUBLIC_KEY, { key: s.publicExport })
-                // todo: sign the public key - authentication                
-                .append(_k.BUFFERS.SIGNATURE, { signature: '' });
+                .append(_k.BUFFERS.SIGNATURE, { 
+                    // todo: instead of hardcoding, use the agreed ea and hf from the suite
+                    encryptionAlhorithm: _k.ENCRYPTION_ALGORITHMS.RSA,
+                    // todo: rename this, its actually the server cert private key
+                    encryptionKey: 
+                    {
+                        key: config.key,
+                        passphrase,
+                    },
+                    hashingFunction: _k.HASHING_FUNCTIONS.SHA256,
+                    // todo: this should be client_hello_random + server_hello_random + curve_info + server_ephemeral_public_key
+                    data: s.publicExport
+                });
 
             socket.write(message.buffer);
 

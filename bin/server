@@ -2,6 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const tls = require('../src/server');
 const argv = require('yargs').argv;
+require('dotenv').config();
 
 const port = argv.port || 3000;
 const privateKeyPath = path.resolve(__dirname, 'certs', 'server-key.pem');

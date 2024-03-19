@@ -1,5 +1,33 @@
 const { hexArray, hexStrategyMixin } = require('./utils');
 
+const ENCRYPTION_ALGORITHMS = {
+    /**
+     * @description RSA (Rivest-Shamir-Adleman)
+     * a widely used public-key encryption algorithm named after 
+     * its inventors Ron Rivest, Adi Shamir, and Leonard Adleman. 
+     * It is one of the first public-key cryptosystems and is widely 
+     * used for secure data transmission. In RSA, each party has 
+     * a pair of keys: a public key and a private key. The public 
+     * key is used for encryption and can be shared openly, while 
+     * the private key is kept secret and is used for decryption. 
+     * The keys are mathematically related in such a way that data 
+     * encrypted with the public key can only be decrypted with 
+     * the corresponding private key, and vice versa.
+     */
+    RSA: 0x04,
+}
+
+const HASHING_FUNCTIONS = {
+    /**
+     * @description SHA-256 is a cryptographic hash function that 
+     * belongs to the SHA-2 (Secure Hash Algorithm 2) family. It 
+     * generates a fixed-size (256-bit or 32-byte) output, regardless 
+     * of the input size, making it suitable for a wide range of 
+     * cryptographic applications.
+     */
+    SHA256: 0x01,
+}
+
 /**
  * Cipher suites are sets of cryptographic algorithms and 
  * parameters used to secure communication channels.During 
@@ -107,4 +135,4 @@ function read(message) {
     return cipherSuites;
 }
 
-module.exports = { CipherSuits, create, read };
+module.exports = { ENCRYPTION_ALGORITHMS, HASHING_FUNCTIONS, CipherSuits, create, read };

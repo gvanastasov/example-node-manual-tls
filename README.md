@@ -17,7 +17,15 @@ openssl req -new -key server-key.pem -out server-csr.pem
 openssl x509 -req -days 365 -in server-csr.pem -signkey server-key.pem -out server-cert.pem
 ```
 
-2. Run the server
+2. Configure .env
+```sh
+# root
+cp .env.example .env
+```
+
+> update `SERVER_PCERT_PASSPHRASE` with the passphrase you used during the pkey creation from step 1 above. You can also omit passphrase in the first place, by removing -aes256, but that would require some minor code changes.
+
+3. Run the server
 
 ```sh
 npm run start:server
