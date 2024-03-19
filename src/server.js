@@ -1,5 +1,6 @@
 const net = require('net');
 const os = require('os');
+const crypto = require('crypto');
 const { createMessage, parseMessage, _k } = require('./tls');
 const { generateRandomBytes } = require('./utils');
 
@@ -18,6 +19,8 @@ function session() {
     this.id = generateId();
     this.clientRandom = null;
     this.serverRandom = null;
+    this.privateKey = null;
+    this.publicKey = null;
 
     return this;
 }
@@ -106,12 +109,12 @@ function createServer({ hostname = 'localhost', key, csr, cert } = {}) {
             sendServerHello(message);
         }
 
-        function sendServerHello(message) {
+        function sendServerHello(req) {
             let s = new session();
             sessions.push(s);
 
             let negotiatedCipher = negotiateCipherSuite(
-                message.client.ciphers.value, config.cipherSuites);
+                req.client.cipherSuites.map(x => x.value), config.cipherSuites);
 
             // Step 4.1: unable to negotiate cipher suite
             if (negotiatedCipher === null) {
@@ -122,7 +125,7 @@ function createServer({ hostname = 'localhost', key, csr, cert } = {}) {
                 });
             }
 
-            let message = createMessage({
+            let res = createMessage({
                 contentType: _k.CONTENT_TYPE.Handshake,
                 version: config.version
             })
@@ -133,14 +136,14 @@ function createServer({ hostname = 'localhost', key, csr, cert } = {}) {
                 .append(_k.BUFFERS.CIPHERS, { ciphers: [negotiatedCipher] })
                 .append(_k.BUFFERS.COMPRESSION, { methods: [_k.COMPRESSION_METHODS.NULL] });
 
-            socket.write(message.buffer);
+            socket.write(res.buffer);
 
             // Step 5: server sends CERTIFICATE
             console.log('[server]: send CERTIFICATE to client - [%s]', remoteAddress);
-            sendCertificate();
+            sendCertificate(s);
         }
 
-        function sendCertificate() {
+        function sendCertificate(s) {
             let message = createMessage({
                 contentType: _k.CONTENT_TYPE.Handshake,
                 version: config.version
@@ -152,16 +155,25 @@ function createServer({ hostname = 'localhost', key, csr, cert } = {}) {
 
             // Step 6: server sends SERVER_KEY_EXCHANGE
             console.log('[server]: send SERVER_KEY_EXCHANGE to client - [%s]', remoteAddress);
-            sendServerKeyExchange();
+            sendServerKeyExchange(s);
         }
 
-        function sendServerKeyExchange() {
+        function sendServerKeyExchange(s) {
+            let { privateKey, publicKey } = generateEphemeralKeys('x25519');
+            s.privateKey = privateKey;
+            s.publicKey = publicKey;
+            s.publicExport = publicKey.export({ type: 'spki', format: 'pem' });
+            
+            // use context instead of message
             let message = createMessage({
                 contentType: _k.CONTENT_TYPE.Handshake,
                 version: config.version
             })
                 .append(_k.BUFFERS.HANDSHAKE_HEADER, { type: _k.HANDSHAKE_TYPE.ServerKeyExchange, length: 0 })
-            // todo: add server key exchange parameters
+                .append(_k.BUFFERS.CURVE_INFO, { curve: 'x25519' })
+                .append(_k.BUFFERS.PUBLIC_KEY, { key: s.publicExport })
+                // todo: sign the public key - authentication                
+                .append(_k.BUFFERS.SIGNATURE, { signature: '' });
 
             socket.write(message.buffer);
 
@@ -204,6 +216,11 @@ function createServer({ hostname = 'localhost', key, csr, cert } = {}) {
                 }
             }
             return null;
+        }
+
+        function generateEphemeralKeys(curve) {
+            const { publicKey, privateKey } = crypto.generateKeyPairSync(curve);
+            return { privateKey, publicKey };
         }
     };
 
