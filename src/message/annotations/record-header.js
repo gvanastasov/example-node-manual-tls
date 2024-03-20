@@ -1,5 +1,3 @@
-const { hexArray, hexStrategyMixin } = require('../../utils');
-
 const ContentType = {
     /**
      * Used for exchanging cryptographic parameters and 
@@ -75,11 +73,10 @@ function read(context) {
     const version = buffer.readUInt16BE(1);
     const payloadLength = buffer.readUInt16BE(3);
 
-    // todo: add pretty print for contentType and version
     return {
-        _raw: hexArray(buffer),
-        contentType: contentType,
-        version: version,
+        _raw: buffer,
+        contentType,
+        version,
         payloadLength
     };
 }

@@ -1,5 +1,3 @@
-const { hexArray } = require('../../utils');
-
 const EncryptionAlgorithms = {
     /**
      * @description RSA (Rivest-Shamir-Adleman)
@@ -124,8 +122,7 @@ function read(context) {
     for (let i = 0; i < length; i++) {
         var value = cipherBuffer.readUInt16BE(i * 2);
         cipherSuites.push({
-            _raw: hexArray(cipherBuffer.subarray(i * 2, (i * 2) + 2)),
-            // name: CipherSuits.getName(value),
+            _raw: cipherBuffer.subarray(i * 2, (i * 2) + 2),
             value,
         });
     }

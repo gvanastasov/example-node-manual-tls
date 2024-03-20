@@ -1,4 +1,4 @@
-const { generateRandomBytes } = require('../../utils');
+const { generateRandomBytes } = require('../../utils/hex');
 
 /**
  * @description The Client Random is sent in plaintext as 

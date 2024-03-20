@@ -1,5 +1,3 @@
-const { hexArray } = require('../../utils');
-
 /**
  * 
  * NOTES:
@@ -47,7 +45,7 @@ function read(context) {
     let sessionID = sessionBuffer.toString('hex');
     
     return {
-        _raw: hexArray(Buffer.concat([buffer, sessionBuffer])),
+        _raw: Buffer.concat([buffer, sessionBuffer]),
         length,
         sessionID
     };

@@ -2,7 +2,7 @@ const net = require('net');
 const os = require('os');
 const crypto = require('crypto');
 
-const { generateRandomBytes } = require('./utils');
+const { generateRandomBytes } = require('./utils/hex');
 const { messageBuilder, parseMessage, _k  } = require('./message');
 
 // move out of here

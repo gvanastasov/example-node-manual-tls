@@ -1,5 +1,3 @@
-const { hexArray } = require('../../utils');
-
 /**
  * @description refers to the type of handshake message being 
  * sent or received during the TLS handshake process. Each 
@@ -74,7 +72,7 @@ function read(context) {
     const buffer = context.next(3);
     // todo: add pretty print for type
     return {
-        _raw: hexArray(buffer),
+        _raw: buffer,
         type: buffer.readUInt8(0),
         length: buffer.readUInt16BE(1),
     };

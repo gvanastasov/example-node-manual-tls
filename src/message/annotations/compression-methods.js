@@ -1,5 +1,3 @@
-const { hexArray, hexStrategyMixin } = require('../../utils');
-
 /**
  * @description algorithms that can be used to compress data exchanged during 
  * the TLS handshake and subsequent communication. Compression in TLS has been 
@@ -47,7 +45,7 @@ function read(context) {
     for (let i = 0; i < length; i++) {
         var value = methods.readUInt8(i);
         compressionMethods.push({
-            _raw: hexArray(methods.subarray(i, i + 1)),
+            _raw: methods.subarray(i, i + 1),
             value,
         });
     }

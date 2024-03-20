@@ -1,5 +1,3 @@
-const { hexStrategyMixin } = require('../../utils');
-
 /**
  * @description The TLS alert level codes.
  */
