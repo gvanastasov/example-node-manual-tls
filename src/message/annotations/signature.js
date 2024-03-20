@@ -1,5 +1,5 @@
 const crypto = require('crypto');
-const { ENCRYPTION_ALGORITHMS, HASHING_FUNCTIONS } = require('./tls-ciphers');
+const { ENCRYPTION_ALGORITHMS, HASHING_FUNCTIONS } = require('./cipher-suites');
 
 function create({ encryptionAlhorithm, encryptionKey, hashingFunction, data }) {
     const encrypted = crypto.publicEncrypt(

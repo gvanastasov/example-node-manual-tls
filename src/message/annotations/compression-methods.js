@@ -1,4 +1,4 @@
-const { hexArray, hexStrategyMixin } = require('./utils');
+const { hexArray, hexStrategyMixin } = require('../../utils');
 
 /**
  * @description algorithms that can be used to compress data exchanged during 

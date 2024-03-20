@@ -1,4 +1,4 @@
-const { hexArray } = require('./utils');
+const { hexArray } = require('../../utils');
 
 /**
  * 

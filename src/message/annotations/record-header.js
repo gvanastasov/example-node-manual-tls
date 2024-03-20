@@ -1,5 +1,4 @@
-const { hexArray, hexStrategyMixin } = require('./utils');
-const { TLSVersion } = require('./tls-version');
+const { hexArray, hexStrategyMixin } = require('../../utils');
 
 const ContentType = {
     /**
@@ -37,8 +36,6 @@ const ContentType = {
      * case of HTTPS, is transmitted using this content type.
      */
     ApplicationData: 0x17,
-
-    ...hexStrategyMixin
 };
 
 /**
@@ -59,7 +56,7 @@ const ContentType = {
  * @param {number} length
  * @returns {Buffer} The TLS record header.
  */
-function create(contentType, version, length) {
+function create({ contentType, version, length }) {
     const header = Buffer.alloc(5);
     header.writeUInt8(contentType, 0);
     header.writeUInt16BE(version, 1);
@@ -68,19 +65,21 @@ function create(contentType, version, length) {
 }
 
 /**
- * @description reads a buffer and converts to readable data
- * @param {Buffer} buffer
+ * @description 
+ * @param {Object} context
  * @returns an object representing record header
  */
-function read(buffer) {
+function read(context) {
+    const buffer = context.next(5);
     const contentType = buffer.readUInt8(0);
     const version = buffer.readUInt16BE(1);
     const payloadLength = buffer.readUInt16BE(3);
 
+    // todo: add pretty print for contentType and version
     return {
         _raw: hexArray(buffer),
-        contentType: ContentType.get(contentType),
-        version: TLSVersion.get(version),
+        contentType: contentType,
+        version: version,
         payloadLength
     };
 }

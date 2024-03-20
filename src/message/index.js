@@ -1,54 +1,28 @@
-const { HandshakeType } = require('../tls-handshake-header');
+const { AlertLevel, AlertDescription } = require('./annotations/alert');
+const { ContentType } = require('./annotations/record-header');
+const { HandshakeType } = require('./annotations/handshake-header');
 const { Annotations, create, read } = require('./annotations');
 
-const ContentType = {
-    /**
-     * Used for exchanging cryptographic parameters and 
-     * keying material during the TLS handshake process. 
-     * Handshake messages include various types such as 
-     * ClientHello, ServerHello, Certificate, Finished, 
-     * etc. These messages play a crucial role in 
-     * establishing a secure connection between the client 
-     * and server.
-     */
-    Handshake: 0x16,
+// barrel constants for TLS message
+const _k = {
+    AlertLevel,
+    AlertDescription,
+    Annotations,
+    ContentType,
+    HandshakeType,
+}
 
-    /**
-     * Used to signal a change in the cryptographic parameters 
-     * for communication. This typically follows the handshake 
-     * messages and indicates that subsequent records will be 
-     * protected using the negotiated algorithms and keys.
-     */
-    ChangeCipherSpec: 0x14,
-
-    /**
-     * Used for conveying error messages or warnings between the 
-     * client and server. Alert messages can indicate issues such 
-     * as unexpected closure of the connection, certificate problems, 
-     * or protocol-related errors. Alerts help in communicating 
-     * problems that may require immediate attention.
-     */
-    Alert: 0x15,
-
-    /**
-     * Used for carrying the actual application data. Once the 
-     * handshake is complete and the secure channel is established, 
-     * application data, such as HTTP requests or responses in the 
-     * case of HTTPS, is transmitted using this content type.
-     */
-    ApplicationData: 0x17,
-};
-
+// protocol message templates
 const MessageTemplates = {
-    [ContentType.Handshake]: {
-        [HandshakeType.ClientHello]: [
-            Annotations.RECORD_HEADER,
-            Annotations.HANDSHAKE_HEADER,
-            Annotations.VERSION,
-            Annotations.RANDOM,
-            Annotations.SESSION_ID,
-            Annotations.CIPHER_SUITES,
-            Annotations.COMPRESSION,
+    [_k.ContentType.Handshake]: {
+        [_k.HandshakeType.ClientHello]: [
+            _k.Annotations.RECORD_HEADER,
+            _k.Annotations.HANDSHAKE_HEADER,
+            _k.Annotations.VERSION,
+            _k.Annotations.RANDOM,
+            _k.Annotations.SESSION_ID,
+            _k.Annotations.CIPHER_SUITES,
+            _k.Annotations.COMPRESSION,
         ]
     }
 }
@@ -63,11 +37,11 @@ function messageBuilder() {
 
     this.build = () => {
         let buffer = Buffer.alloc(0);
-        let { contentType } = this.annotations[Annotations.RECORD_HEADER];
+        let { contentType } = this.annotations[_k.Annotations.RECORD_HEADER];
         switch (contentType) {
             case ContentType.Handshake:
             {
-                let { type } = this.annotations[Annotations.HANDSHAKE_HEADER];
+                let { type } = this.annotations[_k.Annotations.HANDSHAKE_HEADER];
                 let template = MessageTemplates[contentType][type];
                 if (!template) {
                     // todo: throw instead and catch upstream
@@ -114,14 +88,14 @@ function parseMessage(hexString) {
         }
     }
 
-    message.headers.record = read(Annotations.RECORD_HEADER, context);
+    message.headers.record = read(_k.Annotations.RECORD_HEADER, context);
 
     let contentType = message.headers.record.contentType;
 
     switch (contentType) {
-        case ContentType.Handshake: 
+        case ContentType.Handshake:
         {
-            message.headers.handshake = read(Annotations.HANDSHAKE_HEADER, context);
+            message.headers.handshake = read(_k.Annotations.HANDSHAKE_HEADER, context);
 
             let handshakeType = message.headers.handshake.type;
             let template = MessageTemplates[contentType][handshakeType];
@@ -153,4 +127,4 @@ function parseMessage(hexString) {
     return message;
 }
 
-module.exports = { ContentType, messageBuilder, parseMessage }
+module.exports = { _k, messageBuilder, parseMessage }

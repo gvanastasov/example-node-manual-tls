@@ -1,4 +1,4 @@
-const { hexArray, hexStrategyMixin } = require('./utils');
+const { hexArray, hexStrategyMixin } = require('../../utils');
 
 const ENCRYPTION_ALGORITHMS = {
     /**

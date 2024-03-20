@@ -1,19 +1,17 @@
-const { hexStrategyMixin } = require('./utils');
+const { hexStrategyMixin } = require('../../utils');
 
 /**
  * @description The TLS alert level codes.
  */
-const ALERT_LEVEL = {
+const AlertLevel = {
     WARNING: 0x01,
     FATAL: 0x02,
-
-    ...hexStrategyMixin
 }
 
 /**
  * @description The TLS alert description codes.
  */
-const ALERT_DESCRIPTION = {
+const AlertDescription = {
     CLOSE_NOTIFY: 0x00,
     UNEXPECTED_MESSAGE: 0x0A,
     BAD_RECORD_MAC: 0x14,
@@ -45,8 +43,6 @@ const ALERT_DESCRIPTION = {
     BAD_CERTIFICATE_HASH_VALUE: 0x72,
     UNKNOWN_PSK_IDENTITY: 0x73,
     NO_APPLICATION_PROTOCOL: 0x78,
-
-    ...hexStrategyMixin
 }
 
 function create({ level, description }) {
@@ -59,14 +55,14 @@ function create({ level, description }) {
 function read(message) {
     var buffer = message.context.buffer.next(2);
     return {
-        level: ALERT_LEVEL.get(buffer.readUInt8(0)),
-        description: ALERT_DESCRIPTION.get(buffer.readUInt8(1)),
+        level: AlertLevel.get(buffer.readUInt8(0)),
+        description: AlertDescription.get(buffer.readUInt8(1)),
     };
 }
 
 module.exports = {
-    ALERT_LEVEL,
-    ALERT_DESCRIPTION,
+    ALERT_LEVEL: AlertLevel,
+    ALERT_DESCRIPTION: AlertDescription,
     create,
     read
 };
