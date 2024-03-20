@@ -73,3 +73,4 @@ Protocol extensions which the server can use to take action, or enable new featu
 Most likely not all error cases are handled, with sending proper alert signal back to client.
 No self recover nor any retry logic in case of failed tls phase, connection is simply terminated.
 Server is using self-signed certs (generated via OpenSSL).
+Sessions are kept in-memory process.

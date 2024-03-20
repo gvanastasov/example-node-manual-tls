@@ -1,5 +1,3 @@
-const { hexStrategyMixin } = require('./utils');
-
 /**
  * @description primary TLS versions that have been widely adopted. 
  * However, it's important to note that using older versions like 
@@ -7,7 +5,7 @@ const { hexStrategyMixin } = require('./utils');
  * vulnerabilities. TLS 1.2 and TLS 1.3 are considered more secure, 
  * and TLS 1.3 is the latest version
  */
-const TLSVersion = {
+const ProtocolVersion = {
     /**
      * @description first version of the TLS protocol, succeeding 
      * SSL 3.0. It introduced improvements over SSL 3.0 and aimed 
@@ -48,8 +46,6 @@ const TLSVersion = {
      * Released: March 2018
      */
     TLS_1_3: 0x0304,
-
-    ...hexStrategyMixin,
 };
 
 /**
@@ -70,9 +66,10 @@ function create({ version }) {
  * @param {Buffer} buffer 
  * @returns 
  */
-function read(buffer) {
+function read(context) {
+    const buffer = context.next(2);
     const version = buffer.readUInt16BE(0);
-    return TLSVersion.get(version);
+    return version;
 }
 
-module.exports = { TLSVersion, create, read };
+module.exports = { ProtocolVersion, create, read };

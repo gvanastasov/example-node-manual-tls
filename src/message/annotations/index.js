@@ -30,12 +30,12 @@ const modules = {
     [Annotations.VERSION]: require('./version'),
 }
 
-const create = function(type, args) {
-    return modules[type]?.create(args) || Buffer.alloc(0);
+const create = function(annotation, args) {
+    return modules[annotation]?.create(args) || Buffer.alloc(0);
 }
 
-const read = function(type, message) {
-    return modules[type].read(message);
+const read = function(annotation, message) {
+    return modules[annotation].read(message);
 }
 
 module.exports = { Annotations, create, read };

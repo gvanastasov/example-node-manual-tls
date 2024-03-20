@@ -45,10 +45,10 @@ function create() {
     return Buffer.from([...timestampBytes, ...randomBytes]);
 }
 
-function read(buffer) {
-    const timestampBytes = buffer.slice(0, 4);
+function read(context) {
+    const timestampBytes = context.next(4);
     const timestamp = timestampBytes.readUInt32BE(0);
-    const randomBytes = buffer.slice(4);
+    const randomBytes = context.next(28);
 
     return {
         timestamp: timestamp,

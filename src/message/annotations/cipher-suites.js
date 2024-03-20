@@ -1,6 +1,6 @@
-const { hexArray, hexStrategyMixin } = require('../../utils');
+const { hexArray } = require('../../utils');
 
-const ENCRYPTION_ALGORITHMS = {
+const EncryptionAlgorithms = {
     /**
      * @description RSA (Rivest-Shamir-Adleman)
      * a widely used public-key encryption algorithm named after 
@@ -17,7 +17,7 @@ const ENCRYPTION_ALGORITHMS = {
     RSA: 0x04,
 }
 
-const HASHING_FUNCTIONS = {
+const HashingFunctions = {
     /**
      * @description SHA-256 is a cryptographic hash function that 
      * belongs to the SHA-2 (Secure Hash Algorithm 2) family. It 
@@ -72,8 +72,6 @@ const CipherSuits = {
     TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA: 0xc013,
 
     // note: there are a lot more one can add...
-
-    ...hexStrategyMixin
 };
 
 /**
@@ -114,20 +112,20 @@ function create({ ciphers }) {
 
 /**
  * @description reads a buffer and converts to readable data
- * @param {Object} message 
+ * @param {Object} context 
  * @returns 
  */
-function read(message) {
-    let buffer = message.context.buffer.next(2);
+function read(context) {
+    let buffer = context.next(2);
     let length = buffer.readUInt16BE(0);
-    let cipherBuffer = message.context.buffer.next(length * 2);
+    let cipherBuffer = context.next(length * 2);
     let cipherSuites = [];
 
     for (let i = 0; i < length; i++) {
         var value = cipherBuffer.readUInt16BE(i * 2);
         cipherSuites.push({
             _raw: hexArray(cipherBuffer.subarray(i * 2, (i * 2) + 2)),
-            name: CipherSuits.getName(value),
+            // name: CipherSuits.getName(value),
             value,
         });
     }
@@ -135,4 +133,10 @@ function read(message) {
     return cipherSuites;
 }
 
-module.exports = { ENCRYPTION_ALGORITHMS, HASHING_FUNCTIONS, CipherSuits, create, read };
+module.exports = { 
+    EncryptionAlgorithms, 
+    HashingFunctions, 
+    CipherSuits, 
+    create, 
+    read 
+};

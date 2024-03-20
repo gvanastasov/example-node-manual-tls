@@ -40,10 +40,10 @@ function create({ id }) {
     return buffer;
 }
 
-function read(message) {
-    let buffer = message.context.buffer.next(1);
+function read(context) {
+    let buffer = context.next(1);
     let length = buffer.readUInt8(0);
-    let sessionBuffer = message.context.buffer.next(length);
+    let sessionBuffer = context.next(length);
     let sessionID = sessionBuffer.toString('hex');
     
     return {

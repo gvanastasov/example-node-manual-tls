@@ -52,8 +52,8 @@ function create({ level, description }) {
     return buffer;
 }
 
-function read(message) {
-    var buffer = message.context.buffer.next(2);
+function read(context) {
+    var buffer = context.next(2);
     return {
         level: AlertLevel.get(buffer.readUInt8(0)),
         description: AlertDescription.get(buffer.readUInt8(1)),
@@ -61,8 +61,8 @@ function read(message) {
 }
 
 module.exports = {
-    ALERT_LEVEL: AlertLevel,
-    ALERT_DESCRIPTION: AlertDescription,
+    AlertLevel,
+    AlertDescription,
     create,
     read
 };

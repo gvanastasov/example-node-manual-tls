@@ -1,4 +1,4 @@
-const { EXTENSION_TYPES } = require('./tls-extensions');
+const { EXTENSION_TYPES } = require('./extensions');
 
 const ELLIPTIC_CURVES = {
     /**
@@ -22,8 +22,8 @@ function create({ curve }) {
     return buffer;
 }
 
-function read(message) {
-    const buffer = message.context.buffer.next(3);
+function read(context) {
+    const buffer = context.next(3);
     const type = buffer.readUInt8(0);
     const curve = buffer.readUInt16BE(1);
 

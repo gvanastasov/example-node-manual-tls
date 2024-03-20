@@ -1,42 +1,37 @@
 const net = require('net');
-const { createMessage, parseMessage, _k } = require('./tls');
-const { messageBuilder, parseMessage: pm } = require('./message/message');
-const { Annotations } = require('./message/annotations');
+const { messageBuilder, parseMessage, _k } = require('./message');
 
 function connect(address, port) {
   const client = new net.Socket();
 
   const config = {
-    tlsVersion: _k.PROTOCOL_VERSION.TLS_1_2,
+    tlsVersion: _k.ProtocolVersion.TLS_1_2,
     cipherSuites: [
-      _k.CIPHER_SUITES.TLS_RSA_WITH_AES_128_CBC_SHA,
-      _k.CIPHER_SUITES.TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA,
+      _k.CipherSuits.TLS_RSA_WITH_AES_128_CBC_SHA,
+      _k.CipherSuits.TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA,
     ],
     compressionMethods: [
-      _k.COMPRESSION_METHODS.NULL
+      _k.CompressionMethods.NULL
     ]
   }
 
-  // Step 1: client sends SYN to server
-  console.log('[client]: send SYN');
-  client.connect(port, address, () => {
+  const handles = {
+    [_k.ContentType.Handshake]: {
+      [_k.HandshakeType.ServerHello]: handleServerHello,
+      [_k.HandshakeType.Certificate]: handleCertificate,
+      [_k.HandshakeType.ServerKeyExchange]: handleServerKeyExchange,
+      [_k.HandshakeType.ServerHelloDone]: handleServerHelloDone,
+    },
+    [_k.ContentType.Alert]: handleAlert,
+  }
 
-    client.on('data', handleDataReceived);
-
-    // Step 2: client receives SYN-ACK to server
-    console.log('[client]: received SYN-ACK from server [%s%s]', address, port);
-    
-    // Step 3: client send ACK & CLIENT_HELLO to server
-    console.log('[client]: sends ACK & CLIENT_HELLO to server');
-    sendClientHello();
-
-    function handleDataReceived(data) {
-      let message = parseMessage(data);
-
+  function handleMessage(message) {
+      let contentType = message.headers.record.contentType.value;
       switch (message.headers.record.contentType.value) {
         case _k.CONTENT_TYPE.Handshake:
           {
-            handleHandshake(message);
+            // todo: handle unknown handshake types
+            handles[contentType][annotation](message);
             break;
           }
         case _k.CONTENT_TYPE.Alert:
@@ -48,45 +43,73 @@ function connect(address, port) {
             );
             break;
           }
-      }
-    }
-
-    function handleHandshake(message) {
-      switch (message.headers.handshake.type.value) {
-          case _k.HANDSHAKE_TYPE.ServerHello:
+        default:
           {
-              handleServerHello(message);
-              break;
+            console.log('[client]: received unknown message type - %s', contentType);
           }
       }
-    }
+  }
 
-    function sendClientHello() {
-      let message = messageBuilder()
-          .add(Annotations.RECORD_HEADER, { contentType: _k.CONTENT_TYPE.Handshake, version: config.tlsVersion })
-          .add(Annotations.HANDSHAKE_HEADER, { type: _k.HANDSHAKE_TYPE.ClientHello, length: 0 })
-          .build();
+  // Step 1
+  console.log('[client]: send SYN');
+  client.connect(port, address, () => {
+    client.on('data', onConnectionDataReceive);
 
-      // let message = createMessage({
-      //   contentType: _k.CONTENT_TYPE.Handshake,
-      //   version: config.tlsVersion
-      // })
-      //   .append(_k.BUFFERS.HANDSHAKE_HEADER, { type: _k.HANDSHAKE_TYPE.ClientHello, length: 0 })
-      //   .append(_k.BUFFERS.VERSION, { version: config.tlsVersion })
-      //   .append(_k.BUFFERS.RANDOM)
-      //   // todo: pass existing session id if available
-      //   .append(_k.BUFFERS.SESSION_ID, { id: '0' })
-      //   .append(_k.BUFFERS.CIPHERS, { ciphers: config.cipherSuites })
-      //   .append(_k.BUFFERS.COMPRESSION, { methods: config.compressionMethods });
-
-      client.write(message);
-    }
-
-    function handleServerHello(message) {
-      console.log('[client]: received SERVER_HELLO from server - [%s%s]', address, port);
-      // todo: store session for reuse
+    // Step 2
+    console.log('[client]: received SYN-ACK from server [%s%s]', address, port);
+    
+    // Step 3
+    console.log('[client]: sends ACK & CLIENT_HELLO to server');
+    sendClientHello();
+  
+    function onConnectionDataReceive(data) {
+      let message = parseMessage(data);
+      handleMessage(message);
     }
   });
+
+  function sendClientHello() {
+    let message = messageBuilder()
+        .add(_k.Annotations.RECORD_HEADER, { contentType: _k.ContentType.Handshake, version: config.tlsVersion })
+        .add(_k.Annotations.HANDSHAKE_HEADER, { type: _k.HandshakeType.ClientHello, length: 0 })
+        .add(_k.Annotations.VERSION, { version: config.tlsVersion })
+        .add(_k.Annotations.RANDOM)
+        // todo: pass existing session id if available
+        .add(_k.Annotations.SESSION_ID, { id: '0' })
+        .add(_k.Annotations.CIPHER_SUITES, { ciphers: config.cipherSuites })
+        .add(_k.Annotations.COMPRESSION_METHODS, { methods: config.compressionMethods })
+        .build();
+
+    client.write(message);
+  }
+
+  function handleServerHello(message) {
+    // Step 4
+    console.log('[client]: received SERVER_HELLO from server - [%s%s]', address, port);
+  }
+
+  function handleCertificate(message) {
+    // Step 5
+    console.log('[client]: received CERTIFICATE from server - [%s%s]', address, port);
+  }
+
+  function handleServerKeyExchange(message) {
+    // Step 6
+    console.log('[client]: received SERVER_KEY_EXCHANGE from server - [%s%s]', address, port);
+  }
+
+  function handleServerHelloDone(message) {
+    // Step 7
+    console.log('[client]: received SERVER_HELLO_DONE from server - [%s%s]', address, port);
+  }
+
+  function handleAlert(message) {
+    console.log(
+      '[client]: received %s from server - %s', 
+      message.alert.level.name, 
+      message.alert.description.name
+    );
+  }
 
   client.on('end', () => {
     console.log('[client]: connection closed');

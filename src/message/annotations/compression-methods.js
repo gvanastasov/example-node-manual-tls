@@ -17,8 +17,6 @@ const CompressionMethods = {
      * Widely used compression algorithm that provides lossless data compression.
      */
     DEFLATE: 0x01,
-
-    ...hexStrategyMixin
 };
 
 /**
@@ -38,19 +36,18 @@ function create({ methods }) {
 
 /**
  * @description reads a buffer and converts to readable data
- * @param {Object} message
+ * @param {Object} context
  * @returns {Buffer} The TLS compression methods section.
  */
-function read(message) {
-    let buffer = message.context.buffer.next(1);
+function read(context) {
+    let buffer = context.next(1);
     let length = buffer.readUInt8(0);
-    let methods = message.context.buffer.next(length);
+    let methods = context.next(length);
     let compressionMethods = [];
     for (let i = 0; i < length; i++) {
         var value = methods.readUInt8(i);
         compressionMethods.push({
             _raw: hexArray(methods.subarray(i, i + 1)),
-            name: CompressionMethods.getName(value),
             value,
         });
     }

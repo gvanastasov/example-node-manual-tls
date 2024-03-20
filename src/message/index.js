@@ -1,6 +1,13 @@
 const { AlertLevel, AlertDescription } = require('./annotations/alert');
 const { ContentType } = require('./annotations/record-header');
 const { HandshakeType } = require('./annotations/handshake-header');
+const { ProtocolVersion } = require('./annotations/version');
+const { 
+    EncryptionAlgorithms, 
+    HashingFunctions,
+    CipherSuits 
+} = require('./annotations/cipher-suites');
+const { CompressionMethods } = require('./annotations/compression-methods');
 const { Annotations, create, read } = require('./annotations');
 
 // barrel constants for TLS message
@@ -8,8 +15,13 @@ const _k = {
     AlertLevel,
     AlertDescription,
     Annotations,
+    EncryptionAlgorithms,
+    CipherSuits,
     ContentType,
+    CompressionMethods,
     HandshakeType,
+    HashingFunctions,
+    ProtocolVersion,
 }
 
 // protocol message templates
@@ -22,8 +34,34 @@ const MessageTemplates = {
             _k.Annotations.RANDOM,
             _k.Annotations.SESSION_ID,
             _k.Annotations.CIPHER_SUITES,
-            _k.Annotations.COMPRESSION,
-        ]
+            _k.Annotations.COMPRESSION_METHODS,
+        ],
+        [_k.HandshakeType.ServerHello]: [
+            _k.Annotations.RECORD_HEADER,
+            _k.Annotations.HANDSHAKE_HEADER,
+            _k.Annotations.VERSION,
+            _k.Annotations.RANDOM,
+            _k.Annotations.SESSION_ID,
+            _k.Annotations.CIPHER_SUITES,
+            _k.Annotations.COMPRESSION_METHODS,
+            // ...extensions
+        ],
+        [_k.HandshakeType.Certificate]: [
+            _k.Annotations.RECORD_HEADER,
+            _k.Annotations.HANDSHAKE_HEADER,
+            _k.Annotations.CERTIFICATE,
+        ],
+        [_k.HandshakeType.ServerKeyExchange]: [
+            _k.Annotations.RECORD_HEADER,
+            _k.Annotations.HANDSHAKE_HEADER,
+            _k.Annotations.CURVE_INFO,
+            _k.Annotations.PUBLIC_KEY,
+            _k.Annotations.SIGNATURE,
+        ],
+        [_k.HandshakeType.ServerHelloDone]: [
+            _k.Annotations.RECORD_HEADER,
+            _k.Annotations.HANDSHAKE_HEADER,
+        ],
     }
 }
 
@@ -51,6 +89,13 @@ function messageBuilder() {
 
                 for (let annotation of template) {
                     let args = this.annotations[annotation];
+
+                    if (!args) {
+                        console.log('Missing protocol message annotation: ', annotation);
+                        // todo: throw instead and catch upstream
+                        continue;
+                    }
+
                     let annotationBuffer = create(annotation, args);
 
                     buffer = Buffer.concat([buffer, annotationBuffer]);
@@ -74,9 +119,7 @@ function messageBuilder() {
 function parseMessage(hexString) {
     const buffer = Buffer.from(hexString, 'hex');
     
-    const message = {
-        headers: {},
-    };
+    const message = {};
 
     const context = {
         value: buffer,
@@ -88,16 +131,16 @@ function parseMessage(hexString) {
         }
     }
 
-    message.headers.record = read(_k.Annotations.RECORD_HEADER, context);
+    message[_k.Annotations.RECORD_HEADER] = read(_k.Annotations.RECORD_HEADER, context);
 
-    let contentType = message.headers.record.contentType;
+    let { contentType } = message[_k.Annotations.RECORD_HEADER];
 
     switch (contentType) {
         case ContentType.Handshake:
         {
-            message.headers.handshake = read(_k.Annotations.HANDSHAKE_HEADER, context);
+            message[_k.Annotations.HANDSHAKE_HEADER] = read(_k.Annotations.HANDSHAKE_HEADER, context);
 
-            let handshakeType = message.headers.handshake.type;
+            let { type: handshakeType } = message[_k.Annotations.HANDSHAKE_HEADER];
             let template = MessageTemplates[contentType][handshakeType];
 
             if (!template) {
@@ -107,7 +150,18 @@ function parseMessage(hexString) {
             }
 
             for (let annotation of template) {
-                message[annotation] = read(annotation, context);
+                // dirty: we already read those from the buffer and the pointer is already moved
+                if (annotation === _k.Annotations.RECORD_HEADER || 
+                    annotation === _k.Annotations.HANDSHAKE_HEADER) {
+                    continue;
+                }
+
+                try {
+                    message[annotation] = read(annotation, context);
+                } catch (error) {
+                    // todo: throw instead and catch upstream
+                    console.error('Failed to read annotation: ', annotation);
+                }
             }
 
             break;
