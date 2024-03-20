@@ -4,6 +4,9 @@ const crypto = require('crypto');
 const { createMessage, parseMessage, _k } = require('./tls');
 const { generateRandomBytes } = require('./utils');
 
+const { messageBuilder, parseMessage: pm } = require('./message/message');
+const { Annotations } = require('./message/annotations');
+
 const sessions = [];
 
 function session() {
@@ -55,8 +58,11 @@ function createServer({ hostname = 'localhost', key, csr, cert } = {}) {
         socket.once('close', onConnectionClose);
 
         function onConnectionDataReceive (data) {
-            let message = parseMessage(data);
-            handleMessage(message);
+            // let message = parseMessage(data);
+            // handleMessage(message);
+
+            let message = pm(data);
+            console.log(message);
         };
 
         function onConnectionError(err) {

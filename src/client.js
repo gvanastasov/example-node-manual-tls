@@ -1,5 +1,7 @@
 const net = require('net');
 const { createMessage, parseMessage, _k } = require('./tls');
+const { messageBuilder, parseMessage: pm } = require('./message/message');
+const { Annotations } = require('./message/annotations');
 
 function connect(address, port) {
   const client = new net.Socket();
@@ -60,19 +62,24 @@ function connect(address, port) {
     }
 
     function sendClientHello() {
-      let message = createMessage({
-        contentType: _k.CONTENT_TYPE.Handshake,
-        version: config.tlsVersion
-      })
-        .append(_k.BUFFERS.HANDSHAKE_HEADER, { type: _k.HANDSHAKE_TYPE.ClientHello, length: 0 })
-        .append(_k.BUFFERS.VERSION, { version: config.tlsVersion })
-        .append(_k.BUFFERS.RANDOM)
-        // todo: pass existing session id if available
-        .append(_k.BUFFERS.SESSION_ID, { id: '0' })
-        .append(_k.BUFFERS.CIPHERS, { ciphers: config.cipherSuites })
-        .append(_k.BUFFERS.COMPRESSION, { methods: config.compressionMethods });
+      let message = messageBuilder()
+          .add(Annotations.RECORD_HEADER, { contentType: _k.CONTENT_TYPE.Handshake, version: config.tlsVersion })
+          .add(Annotations.HANDSHAKE_HEADER, { type: _k.HANDSHAKE_TYPE.ClientHello, length: 0 })
+          .build();
 
-      client.write(message.buffer);
+      // let message = createMessage({
+      //   contentType: _k.CONTENT_TYPE.Handshake,
+      //   version: config.tlsVersion
+      // })
+      //   .append(_k.BUFFERS.HANDSHAKE_HEADER, { type: _k.HANDSHAKE_TYPE.ClientHello, length: 0 })
+      //   .append(_k.BUFFERS.VERSION, { version: config.tlsVersion })
+      //   .append(_k.BUFFERS.RANDOM)
+      //   // todo: pass existing session id if available
+      //   .append(_k.BUFFERS.SESSION_ID, { id: '0' })
+      //   .append(_k.BUFFERS.CIPHERS, { ciphers: config.cipherSuites })
+      //   .append(_k.BUFFERS.COMPRESSION, { methods: config.compressionMethods });
+
+      client.write(message);
     }
 
     function handleServerHello(message) {
