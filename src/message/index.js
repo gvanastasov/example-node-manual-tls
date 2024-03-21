@@ -8,6 +8,7 @@ const {
     CipherSuits 
 } = require('./annotations/cipher-suites');
 const { CompressionMethods } = require('./annotations/compression-methods');
+const { EllipticCurves } = require('./annotations/curve-info');
 const { Annotations, create, read } = require('./annotations');
 
 // barrel constants for TLS message
@@ -16,6 +17,7 @@ const _k = {
     AlertDescription,
     Annotations,
     EncryptionAlgorithms,
+    EllipticCurves,
     CipherSuits,
     ContentType,
     CompressionMethods,

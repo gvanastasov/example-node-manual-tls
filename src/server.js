@@ -33,7 +33,7 @@ function createServer({ hostname = 'localhost', key, csr, cert } = {}) {
     
     console.log('[server]: created...')
 
-    const config = {
+    const serverConfig = {
         version: _k.ProtocolVersion.TLS_1_2,
         cipherSuites: [
             _k.CipherSuits.TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA
@@ -42,15 +42,6 @@ function createServer({ hostname = 'localhost', key, csr, cert } = {}) {
         cert,
         csr
     }
-
-    const messages = {
-        [_k.ContentType.Handshake]: {
-            // [_k.HandshakeType.ServerHello]: sendServerHello,
-            // [_k.HandshakeType.Certificate]: sendCertificate,
-            // [_k.HandshakeType.ServerKeyExchange]: sendServerKeyExchange,
-            // [_k.HandshakeType.ServerHelloDone]: sendServerHelloDone,
-        }
-    };
 
     const handles = {
         [_k.ContentType.Handshake]: {
@@ -76,18 +67,13 @@ function createServer({ hostname = 'localhost', key, csr, cert } = {}) {
         }
     }
 
-    function sendMessage(contentType, annotation) {
-        let message = messages[contentType][annotation]();
-        client.write(message);
-    }
-
     function handleConnection(socket) {
         var remoteAddress = socket.remoteAddress + ':' + socket.remotePort; 
 
-        // Step 1: server receives SYN from the client (handled by the tcp server)
+        // Step 1
         console.log('[server]: received SYN from client - [%s]', remoteAddress);
     
-        // Step 2: server send SYN-ACK (handled by the tcp server)
+        // Step 2
         console.log('[server]: send SYN-ACK to client - [%s]', remoteAddress);
 
         socket.on('data', onConnectionDataReceive); 
@@ -111,11 +97,11 @@ function createServer({ hostname = 'localhost', key, csr, cert } = {}) {
     };
 
     function handleClientHello(context) {
-        // Step 3: server receives ACK & CLIENT_HELLO
+        // Step 3
         console.log('[server]: received ACK & CLIENT_HELLO from client - [%s]', context.remoteAddress);
 
         // Step 3.1: server protocol version not supported
-        if (context.message[_k.Annotations.VERSION] !== config.version) {
+        if (context.message[_k.Annotations.VERSION] !== serverConfig.version) {
             console.log('[server]: protocol version not supported - [%s]', context.remoteAddress);
             return alert(context, {
                 level: _k.AlertLevel.FATAL, 
@@ -123,118 +109,109 @@ function createServer({ hostname = 'localhost', key, csr, cert } = {}) {
             });
         }
 
+        // Step 3.2
+        // todo: check session
+
         // Step 4: server sends SERVER_HELLO
-        // console.log('[server]: send SERVER_HELLO to client - [%s]', remoteAddress);
-        // sendServerHello(message);
+        console.log('[server]: send SERVER_HELLO to client - [%s]', context.remoteAddress);
+        sendServerHello(context);
     }
 
-    // function sendServerHello(req) {
-    //     let s = new session();
-    //     sessions.push(s);
+    function sendServerHello(context) {
+        // todo: improve session management
+        context.session = new session();
+        sessions.push(context.session);
 
-    //     let negotiatedCipher = negotiateCipherSuite(
-    //         req.client.cipherSuites.map(x => x.value), config.cipherSuites);
+        let requestCipherSuites = context.message[_k.Annotations.CIPHER_SUITES].map(x => x.value);
+        let negotiatedCipher = negotiateCipherSuite(requestCipherSuites, serverConfig.cipherSuites);
 
-    //     // Step 4.1: unable to negotiate cipher suite
-    //     if (negotiatedCipher === null) {
-    //         console.log('[server]: unable to negotiate cipher suite - [%s]', remoteAddress);
-    //         return alert({ 
-    //             level: _k.ALERT_LEVEL.FATAL, 
-    //             description: _k.ALERT_DESCRIPTION.HANDSHAKE_FAILURE
-    //         });
-    //     }
+        // Step 4.1: unable to negotiate cipher suite
+        if (negotiatedCipher === null) {
+            console.log('[server]: unable to negotiate cipher suite - [%s]', context.remoteAddress);
+            return alert({ 
+                level: _k.AlertLevel.FATAL, 
+                description: _k.AlertDescription.HANDSHAKE_FAILURE
+            });
+        }
 
-    //     let res = createMessage({
-    //         contentType: _k.CONTENT_TYPE.Handshake,
-    //         version: config.version
-    //     })
-    //         .append(_k.BUFFERS.HANDSHAKE_HEADER, { type: _k.HANDSHAKE_TYPE.ServerHello, length: 0 })
-    //         .append(_k.BUFFERS.VERSION, { version: config.version })
-    //         .append(_k.BUFFERS.RANDOM)
-    //         .append(_k.BUFFERS.SESSION_ID, { id: s.id })
-    //         .append(_k.BUFFERS.CIPHERS, { ciphers: [negotiatedCipher] })
-    //         .append(_k.BUFFERS.COMPRESSION, { methods: [_k.COMPRESSION_METHODS.NULL] });
+        let message = messageBuilder()
+            .add(_k.Annotations.RECORD_HEADER, { contentType: _k.ContentType.Handshake, version: serverConfig.version })
+            .add(_k.Annotations.HANDSHAKE_HEADER, { type: _k.HandshakeType.ServerHello, length: 0 })
+            .add(_k.Annotations.VERSION, { version: serverConfig.version })
+            .add(_k.Annotations.RANDOM)
+            .add(_k.Annotations.SESSION_ID, { id: context.session.id })
+            .add(_k.Annotations.CIPHER_SUITES, { ciphers: [negotiatedCipher] })
+            .add(_k.Annotations.COMPRESSION_METHODS, { methods: [_k.CompressionMethods.NULL] })
+            .build();
 
-    //     socket.write(res.buffer);
+        context.socket.write(message);
 
-    //     // Step 5: server sends CERTIFICATE
-    //     console.log('[server]: send CERTIFICATE to client - [%s]', remoteAddress);
-    //     sendCertificate(s);
-    // }
+        // Step 5
+        console.log('[server]: send CERTIFICATE to client - [%s]', context.remoteAddress);
+        sendCertificate(context);
+    }
 
-    // function sendCertificate(s) {
-    //     let message = createMessage({
-    //         contentType: _k.CONTENT_TYPE.Handshake,
-    //         version: config.version
-    //     })
-    //         .append(_k.BUFFERS.HANDSHAKE_HEADER, { type: _k.HANDSHAKE_TYPE.Certificate, length: 0 })
-    //         .append(_k.BUFFERS.CERTIFICATE, { cert: config.cert });
+    function sendCertificate(context) {
+        let message = messageBuilder()
+            .add(_k.Annotations.RECORD_HEADER, { contentType: _k.ContentType.Handshake, version: serverConfig.version })
+            .add(_k.Annotations.HANDSHAKE_HEADER, { type: _k.HandshakeType.Certificate, length: 0 })
+            .add(_k.Annotations.CERTIFICATE, { cert: serverConfig.cert })
+            .build();
 
-    //     socket.write(message.buffer);
+        context.socket.write(message);
 
-    //     // Step 6: server sends SERVER_KEY_EXCHANGE
-    //     console.log('[server]: send SERVER_KEY_EXCHANGE to client - [%s]', remoteAddress);
-    //     sendServerKeyExchange(s);
-    // }
+        // Step 6: server sends SERVER_KEY_EXCHANGE
+        console.log('[server]: send SERVER_KEY_EXCHANGE to client - [%s]', context.remoteAddress);
+        sendServerKeyExchange(context);
+    }
 
-    // function sendServerKeyExchange(s) {
-    //     // todo: use curve based on agreement in cipher suite and remove hardcoded value
-    //     let { privateKey, publicKey } = generateEphemeralKeys('x25519');
-    //     s.privateKey = privateKey;
-    //     s.publicKey = publicKey;
-    //     s.publicExport = publicKey.export({ type: 'spki', format: 'der' });
+    function sendServerKeyExchange(context) {
+        // todo: use curve based on agreement in cipher suite and remove hardcoded value
+        let { privateKey, publicKey } = generateEphemeralKeys('x25519');
+        context.session.privateKey = privateKey;
+        context.session.publicKey = publicKey;
+        context.session.publicExport = publicKey.export({ type: 'spki', format: 'der' });
         
-    //     const passphrase = process.env.SERVER_PCERT_PASSPHRASE;
-    //     if (!passphrase) {
-    //         return alert({ 
-    //             level: _k.ALERT_LEVEL.FATAL, 
-    //             description: _k.ALERT_DESCRIPTION.INTERNAL_ERROR
-    //         });
-    //     }
+        const passphrase = process.env.SERVER_PCERT_PASSPHRASE;
+        if (!passphrase) {
+            return alert({ 
+                level: _k.AlertLevel.FATAL, 
+                description: _k.AlertDescription.INTERNAL_ERROR
+            });
+        }
 
-    //     // todo: use context instead of message
-    //     let message = createMessage({
-    //         contentType: _k.CONTENT_TYPE.Handshake,
-    //         version: config.version
-    //     })
-    //         .append(_k.BUFFERS.HANDSHAKE_HEADER, { type: _k.HANDSHAKE_TYPE.ServerKeyExchange, length: 0 })
-    //         // todo: use curve based on agreement in cipher suite
-    //         .append(_k.BUFFERS.CURVE_INFO, { curve: _k.ELLIPTIC_CURVES.x25519 })
-    //         .append(_k.BUFFERS.PUBLIC_KEY, { key: s.publicExport })
-    //         .append(_k.BUFFERS.SIGNATURE, { 
-    //             // todo: instead of hardcoding, use the agreed ea and hf from the suite
-    //             encryptionAlhorithm: _k.ENCRYPTION_ALGORITHMS.RSA,
-    //             // todo: rename this, its actually the server cert private key
-    //             encryptionKey: 
-    //             {
-    //                 key: config.key,
-    //                 passphrase,
-    //             },
-    //             hashingFunction: _k.HASHING_FUNCTIONS.SHA256,
-    //             // todo: this should be client_hello_random + server_hello_random + curve_info + server_ephemeral_public_key
-    //             data: s.publicExport
-    //         });
+        let message = messageBuilder()
+            .add(_k.Annotations.RECORD_HEADER, { contentType: _k.ContentType.Handshake, version: serverConfig.version })
+            .add(_k.Annotations.HANDSHAKE_HEADER, { type: _k.HandshakeType.ServerKeyExchange, length: 0 })
+            .add(_k.Annotations.CURVE_INFO, { curve: _k.EllipticCurves.x25519 })
+            .add(_k.Annotations.PUBLIC_KEY, { key: context.session.publicExport })
+            .add(_k.Annotations.SIGNATURE, {
+                encryptionAlhorithm: _k.EncryptionAlgorithms.RSA,
+                encryptionKey: { key: serverConfig.key, passphrase },
+                hashingFunction: _k.HashingFunctions.SHA256,
+                data: context.session.publicExport
+            })
+            .build();
 
-    //     socket.write(message.buffer);
+        context.socket.write(message);
 
-    //     // Step 7: server sends SERVER_HELLO_DONE
-    //     console.log('[server]: send SERVER_HELLO_DONE to client - [%s]', remoteAddress);
-    //     sendServerHelloDone();
-    // }
+        // Step 7: server sends SERVER_HELLO_DONE
+        console.log('[server]: send SERVER_HELLO_DONE to client - [%s]', context.remoteAddress);
+        sendServerHelloDone(context);
+    }
 
-    // function sendServerHelloDone() {
-    //     let message = createMessage({
-    //         contentType: _k.CONTENT_TYPE.Handshake,
-    //         version: config.version
-    //     })
-    //         .append(_k.BUFFERS.HANDSHAKE_HEADER, { type: _k.HANDSHAKE_TYPE.DoneHello, length: 0 });
+    function sendServerHelloDone(context) {
+        let message = messageBuilder()
+            .add(_k.Annotations.RECORD_HEADER, { contentType: _k.ContentType.Handshake, version: serverConfig.version })
+            .add(_k.Annotations.HANDSHAKE_HEADER, { type: _k.HandshakeType.DoneHello, length: 0 })
+            .build();
 
-    //     socket.write(message.buffer);
-    // }
+        context.socket.write(message);
+    }
 
     function alert(context, { level, description }) {
         const message = messageBuilder()
-            .add(_k.Annotations.RECORD_HEADER, { contentType: _k.ContentType.Alert, version: config.version })
+            .add(_k.Annotations.RECORD_HEADER, { contentType: _k.ContentType.Alert, version: serverConfig.version })
             .add(_k.Annotations.ALERT, { level, description })
             .build();
         context.socket.write(message);

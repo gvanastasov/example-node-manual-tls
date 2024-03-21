@@ -1,6 +1,6 @@
-const { EXTENSION_TYPES } = require('./extensions');
+const { ExtensionTypes } = require('./extensions');
 
-const ELLIPTIC_CURVES = {
+const EllipticCurves = {
     /**
      * @description Curve25519
      * 
@@ -17,7 +17,7 @@ const ELLIPTIC_CURVES = {
 
 function create({ curve }) {
     const buffer = Buffer.alloc(3 + curve.length);
-    buffer.writeUInt8(0, EXTENSION_TYPES.named_curve);
+    buffer.writeUInt8(0, ExtensionTypes.named_curve);
     buffer.writeUInt16BE(curve.length, 1);
     return buffer;
 }
@@ -33,4 +33,4 @@ function read(context) {
     };
 }
 
-module.exports = { ELLIPTIC_CURVES, create, read };
+module.exports = { EllipticCurves, create, read };

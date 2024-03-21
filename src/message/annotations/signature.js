@@ -1,5 +1,5 @@
 const crypto = require('crypto');
-const { ENCRYPTION_ALGORITHMS, HASHING_FUNCTIONS } = require('./cipher-suites');
+const { EncryptionAlgorithms, HashingFunctions } = require('./cipher-suites');
 
 function create({ encryptionAlhorithm, encryptionKey, hashingFunction, data }) {
     const encrypted = crypto.publicEncrypt(
@@ -8,7 +8,7 @@ function create({ encryptionAlhorithm, encryptionKey, hashingFunction, data }) {
         {
             padding: (() => {
                 switch (encryptionAlhorithm) {
-                    case ENCRYPTION_ALGORITHMS.RSA:
+                    case EncryptionAlgorithms.RSA:
                         return crypto.constants.RSA_PKCS1_PADDING;
                     default:
                         throw new Error('Unsupported encryption algorithm');
@@ -18,7 +18,7 @@ function create({ encryptionAlhorithm, encryptionKey, hashingFunction, data }) {
 
     const hashed = crypto.createHash((() => {
         switch (hashingFunction) {
-            case HASHING_FUNCTIONS.SHA256:
+            case HashingFunctions.SHA256:
                 return 'sha256';
             default:
                 throw new Error('Unsupported hashing function');

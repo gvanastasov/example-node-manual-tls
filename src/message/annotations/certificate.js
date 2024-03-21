@@ -6,8 +6,16 @@ function create({ cert }) {
     return buffer;
 }
 
-function read(message) {
-    // todo: read certificate
+function read(context) {
+    const lengthBuffer = context.next(3);
+    const length = lengthBuffer.readUInt16BE(1);
+    const certBuffer = context.next(length);
+
+    return { 
+        _raw: Buffer.concat([lengthBuffer, certBuffer]),
+        length,
+        cert: certBuffer
+    };
 }
 
 module.exports = {
