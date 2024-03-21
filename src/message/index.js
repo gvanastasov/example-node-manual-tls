@@ -24,6 +24,23 @@ const _k = {
     HandshakeType,
     HashingFunctions,
     ProtocolVersion,
+    Dimensions: {
+        RecordHeader: {
+            Bytes: 5,
+            ContentType: {
+                Start: 0,
+                End: 1,
+            },
+            Version: {
+                Start: 1,
+                End: 3,
+            },
+            Length: {
+                Start: 3,
+                End: 5,
+            },
+        },
+    }
 }
 
 // protocol message templates
@@ -60,11 +77,15 @@ const MessageTemplates = {
             _k.Annotations.PUBLIC_KEY,
             _k.Annotations.SIGNATURE,
         ],
-        [_k.HandshakeType.ServerHelloDone]: [
+        [_k.HandshakeType.DoneHello]: [
             _k.Annotations.RECORD_HEADER,
             _k.Annotations.HANDSHAKE_HEADER,
         ],
-    }
+    },
+    [_k.ContentType.Alert]: [
+        _k.Annotations.RECORD_HEADER,
+        _k.Annotations.ALERT,
+    ],
 }
 
 function messageBuilder() {
@@ -102,7 +123,28 @@ function messageBuilder() {
 
                     buffer = Buffer.concat([buffer, annotationBuffer]);
                 }
+
+                // note: set the length of the message following the handshake header
+                buffer.writeUInt16BE(buffer.length - 9, 6);
                 break;
+            }
+            case ContentType.Alert:
+            {
+                let template = MessageTemplates[contentType];
+                for (let annotation of template) {
+                    let args = this.annotations[annotation];
+
+                    if (!args) {
+                        console.log('Missing protocol message annotation: ', annotation);
+                        // todo: throw instead and catch upstream
+                        continue;
+                    }
+
+                    let annotationBuffer = create(annotation, args);
+
+                    buffer = Buffer.concat([buffer, annotationBuffer]);
+                }
+                break; 
             }
             default: 
             {
@@ -111,6 +153,9 @@ function messageBuilder() {
                 break;
             }
         }
+
+        // note: set the length of the message following the record header
+        buffer.writeUInt16BE(buffer.length - 5, 3);
 
         return buffer;
     }

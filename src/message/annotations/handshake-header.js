@@ -50,16 +50,16 @@ const HandshakeType = {
 /**
  * @description
  * 1 byte - Handshake type
- * 2 bytes - Placeholder for message length
+ * 3 bytes - Placeholder for message length
  * 
  * @param {number} type
  * @param {number} length
  * @returns 
  */
 function create({ type, length }) {
-    const header = Buffer.alloc(3);
+    const header = Buffer.alloc(4);
     header.writeUInt8(type, 0);
-    header.writeUInt16BE(length, 1);
+    header.writeUIntBE(length, 1, 3);
     return header;
 }
 
@@ -69,12 +69,12 @@ function create({ type, length }) {
  * @returns an object representing the handshake header
  */
 function read(context) {
-    const buffer = context.next(3);
+    const buffer = context.next(4);
     // todo: add pretty print for type
     return {
         _raw: buffer,
         type: buffer.readUInt8(0),
-        length: buffer.readUInt16BE(1),
+        length: buffer.readUIntBE(1, 3),
     };
 }
 

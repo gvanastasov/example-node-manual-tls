@@ -68,7 +68,8 @@ function createServer({ hostname = 'localhost', key, csr, cert } = {}) {
     }
 
     function handleConnection(socket) {
-        var remoteAddress = socket.remoteAddress + ':' + socket.remotePort; 
+        const remoteAddress = socket.remoteAddress + ':' + socket.remotePort; 
+        let buffer = Buffer.alloc(0);
 
         // Step 1
         console.log('[server]: received SYN from client - [%s]', remoteAddress);
@@ -80,9 +81,24 @@ function createServer({ hostname = 'localhost', key, csr, cert } = {}) {
         socket.on('error', onConnectionError);
         socket.once('close', onConnectionClose);
 
+
         function onConnectionDataReceive (data) {
-            let message = parseMessage(data);
-            console.log(message);
+            buffer = Buffer.concat([buffer, data]);
+
+            if (buffer.length < _k.Dimensions.RecordHeader.Bytes) {
+                return;
+            }
+
+            let messageLength = buffer.readUInt16BE(_k.Dimensions.RecordHeader.Length.Start);
+
+            if (buffer.length < messageLength + _k.Dimensions.RecordHeader.Bytes) {
+                return;
+            }
+
+            let messageData = Uint8Array.prototype.slice.call(buffer, 0, messageLength + _k.Dimensions.RecordHeader.Bytes);
+            buffer = buffer.subarray(messageLength + _k.Dimensions.RecordHeader.Bytes);
+
+            let message = parseMessage(messageData);
             let context = { message, socket, remoteAddress };
             handleMessage(context);
         };

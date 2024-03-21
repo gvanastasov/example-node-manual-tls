@@ -46,7 +46,7 @@ function connect(address, port) {
         }
       }
   }
-
+  let buffer = Buffer.alloc(0);
   // Step 1
   console.log('[client]: send SYN');
   client.connect(port, address, () => {
@@ -61,12 +61,32 @@ function connect(address, port) {
     console.log('[client]: sends ACK & CLIENT_HELLO to server');
     sendClientHello();
   
+    /**
+     * @description handles byte stream received from the server.
+     * Ensures that we process each complete TLS record received over the TCP 
+     * connection before attempting to parse and handle it.
+     * 
+     * @param {Buffer} data 
+     */
     function onConnectionDataReceive(data) {
-      console.log(data)
-      // let message = parseMessage(data);
-      // let context = { message, serverAddress };
-      // console.log(message);
-      // handleMessage(context);
+      buffer = Buffer.concat([buffer, data]);
+
+      if (buffer.length < _k.Dimensions.RecordHeader.Bytes) {
+        return;
+      }
+
+      let messageLength = buffer.readUInt16BE(_k.Dimensions.RecordHeader.Length.Start);
+
+      if (buffer.length < messageLength + _k.Dimensions.RecordHeader.Bytes) {
+        return;
+      }
+
+      let messageData = Uint8Array.prototype.slice.call(buffer, 0, messageLength + _k.Dimensions.RecordHeader.Bytes);
+      buffer = buffer.subarray(messageLength + _k.Dimensions.RecordHeader.Bytes);
+
+      let message = parseMessage(messageData);
+      let context = { message, serverAddress };
+      handleMessage(context);
     }
   });
 
