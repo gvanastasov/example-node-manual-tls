@@ -46,20 +46,20 @@ function connect(address, port) {
         }
       }
   }
-  let buffer = Buffer.alloc(0);
-  // Step 1
-  console.log('[client]: send SYN');
-  client.connect(port, address, () => {
-    var serverAddress = address + ':' + port;
 
+  let buffer = Buffer.alloc(0);
+  var serverAddress = address + ':' + port;
+
+  // Step 1
+  console.log('[client]: send - SYN - to: [%s]', serverAddress);
+
+  client.connect(port, address, () => {
     client.on('data', onConnectionDataReceive);
 
     // Step 2
-    console.log('[client]: received SYN-ACK from server [%s]', serverAddress);
+    console.log('[client]: received - SYN-ACK - from [%s]', serverAddress);
     
-    // Step 3
-    console.log('[client]: sends ACK & CLIENT_HELLO to server');
-    sendClientHello();
+    sendClientHello({ serverAddress });
   
     /**
      * @description handles byte stream received from the server.
@@ -71,26 +71,22 @@ function connect(address, port) {
     function onConnectionDataReceive(data) {
       buffer = Buffer.concat([buffer, data]);
 
-      if (buffer.length < _k.Dimensions.RecordHeader.Bytes) {
-        return;
+      while(buffer.length >= _k.Dimensions.RecordHeader.Bytes) {
+        let messageLength = buffer.readUInt16BE(_k.Dimensions.RecordHeader.Length.Start);
+  
+        if (buffer.length >= messageLength + _k.Dimensions.RecordHeader.Bytes) {
+          let messageData = Uint8Array.prototype.slice.call(buffer, 0, messageLength + _k.Dimensions.RecordHeader.Bytes);
+          buffer = buffer.subarray(messageLength + _k.Dimensions.RecordHeader.Bytes);
+    
+          let message = parseMessage(messageData);
+          let context = { message, serverAddress };
+          handleMessage(context);
+        }
       }
-
-      let messageLength = buffer.readUInt16BE(_k.Dimensions.RecordHeader.Length.Start);
-
-      if (buffer.length < messageLength + _k.Dimensions.RecordHeader.Bytes) {
-        return;
-      }
-
-      let messageData = Uint8Array.prototype.slice.call(buffer, 0, messageLength + _k.Dimensions.RecordHeader.Bytes);
-      buffer = buffer.subarray(messageLength + _k.Dimensions.RecordHeader.Bytes);
-
-      let message = parseMessage(messageData);
-      let context = { message, serverAddress };
-      handleMessage(context);
     }
   });
 
-  function sendClientHello() {
+  function sendClientHello({ serverAddress }) {
     let message = messageBuilder()
         .add(_k.Annotations.RECORD_HEADER, { contentType: _k.ContentType.Handshake, version: clientConfig.tlsVersion })
         .add(_k.Annotations.HANDSHAKE_HEADER, { type: _k.HandshakeType.ClientHello, length: 0 })
@@ -102,27 +98,29 @@ function connect(address, port) {
         .add(_k.Annotations.COMPRESSION_METHODS, { methods: clientConfig.compressionMethods })
         .build();
 
+    // Step 3
+    console.log('[client]: sends [%s] bytes - ACK & CLIENT_HELLO - to: [%s]', message.length, serverAddress);
     client.write(message);
   }
 
   function handleServerHello(context) {
     // Step 4
-    console.log('[client]: received SERVER_HELLO from server - [%s]', context.serverAddress);
+    console.log('[client]: received [%s] bytes - SERVER_HELLO - from: [%s]', context.message._raw.length, context.serverAddress);
   }
 
   function handleCertificate(context) {
     // Step 5
-    console.log('[client]: received CERTIFICATE from server - [%s]', context.serverAddress);
+    console.log('[client]: received [%s] bytes - CERTIFICATE - from: [%s]', context.message._raw.length, context.serverAddress);
   }
 
   function handleServerKeyExchange(context) {
     // Step 6
-    console.log('[client]: received SERVER_KEY_EXCHANGE from server - [%s]', context.serverAddress);
+    console.log('[client]: received [%s] bytes - SERVER_KEY_EXCHANGE - from: [%s]', context.message._raw.length, context.serverAddress);
   }
 
   function handleServerHelloDone(context) {
     // Step 7
-    console.log('[client]: received SERVER_HELLO_DONE from server - [%s]', context.serverAddress);
+    console.log('[client]: received [%s] bytes - SERVER_HELLO_DONE - from: [%s]', context.message._raw.length, context.serverAddress);
   }
 
   function handleAlert(message) {

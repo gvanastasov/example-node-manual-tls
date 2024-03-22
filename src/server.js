@@ -71,11 +71,11 @@ function createServer({ hostname = 'localhost', key, csr, cert } = {}) {
         const remoteAddress = socket.remoteAddress + ':' + socket.remotePort; 
         let buffer = Buffer.alloc(0);
 
-        // Step 1
-        console.log('[server]: received SYN from client - [%s]', remoteAddress);
+        // Step 1 (handled by TCP server)
+        console.log('[server]: received - SYN - from: [%s]', remoteAddress);
     
-        // Step 2
-        console.log('[server]: send SYN-ACK to client - [%s]', remoteAddress);
+        // Step 2 (handled by TCP server)
+        console.log('[server]: send - SYN-ACK - to: [%s]', remoteAddress);
 
         socket.on('data', onConnectionDataReceive); 
         socket.on('error', onConnectionError);
@@ -85,22 +85,18 @@ function createServer({ hostname = 'localhost', key, csr, cert } = {}) {
         function onConnectionDataReceive (data) {
             buffer = Buffer.concat([buffer, data]);
 
-            if (buffer.length < _k.Dimensions.RecordHeader.Bytes) {
-                return;
+            while(buffer.length >= _k.Dimensions.RecordHeader.Bytes) {            
+                let messageLength = buffer.readUInt16BE(_k.Dimensions.RecordHeader.Length.Start);
+    
+                if (buffer.length >= messageLength + _k.Dimensions.RecordHeader.Bytes) {
+                    let messageData = Uint8Array.prototype.slice.call(buffer, 0, messageLength + _k.Dimensions.RecordHeader.Bytes);
+                    buffer = buffer.subarray(messageLength + _k.Dimensions.RecordHeader.Bytes);
+        
+                    let message = parseMessage(messageData);
+                    let context = { message, socket, remoteAddress };
+                    handleMessage(context);
+                }
             }
-
-            let messageLength = buffer.readUInt16BE(_k.Dimensions.RecordHeader.Length.Start);
-
-            if (buffer.length < messageLength + _k.Dimensions.RecordHeader.Bytes) {
-                return;
-            }
-
-            let messageData = Uint8Array.prototype.slice.call(buffer, 0, messageLength + _k.Dimensions.RecordHeader.Bytes);
-            buffer = buffer.subarray(messageLength + _k.Dimensions.RecordHeader.Bytes);
-
-            let message = parseMessage(messageData);
-            let context = { message, socket, remoteAddress };
-            handleMessage(context);
         };
 
         function onConnectionError(err) {
@@ -114,7 +110,7 @@ function createServer({ hostname = 'localhost', key, csr, cert } = {}) {
 
     function handleClientHello(context) {
         // Step 3
-        console.log('[server]: received ACK & CLIENT_HELLO from client - [%s]', context.remoteAddress);
+        console.log('[server]: received [%s] bytes - ACK & CLIENT_HELLO - from: [%s]', context.message._raw.length, context.remoteAddress);
 
         // Step 3.1: server protocol version not supported
         if (context.message[_k.Annotations.VERSION] !== serverConfig.version) {
@@ -127,9 +123,7 @@ function createServer({ hostname = 'localhost', key, csr, cert } = {}) {
 
         // Step 3.2
         // todo: check session
-
-        // Step 4: server sends SERVER_HELLO
-        console.log('[server]: send SERVER_HELLO to client - [%s]', context.remoteAddress);
+        
         sendServerHello(context);
     }
 
@@ -160,10 +154,10 @@ function createServer({ hostname = 'localhost', key, csr, cert } = {}) {
             .add(_k.Annotations.COMPRESSION_METHODS, { methods: [_k.CompressionMethods.NULL] })
             .build();
 
+        // Step 4: server sends SERVER_HELLO
+        console.log('[server]: send [%s] bytes - SERVER_HELLO - to: [%s]', message.length, context.remoteAddress);
         context.socket.write(message);
 
-        // Step 5
-        console.log('[server]: send CERTIFICATE to client - [%s]', context.remoteAddress);
         sendCertificate(context);
     }
 
@@ -174,10 +168,10 @@ function createServer({ hostname = 'localhost', key, csr, cert } = {}) {
             .add(_k.Annotations.CERTIFICATE, { cert: serverConfig.cert })
             .build();
 
+        // Step 5
+        console.log('[server]: send [%s] bytes - CERTIFICATE - to: [%s]', message.length, context.remoteAddress);
         context.socket.write(message);
 
-        // Step 6: server sends SERVER_KEY_EXCHANGE
-        console.log('[server]: send SERVER_KEY_EXCHANGE to client - [%s]', context.remoteAddress);
         sendServerKeyExchange(context);
     }
 
@@ -209,10 +203,10 @@ function createServer({ hostname = 'localhost', key, csr, cert } = {}) {
             })
             .build();
 
+        // Step 6: server sends SERVER_KEY_EXCHANGE
+        console.log('[server]: send [%s] bytes - SERVER_KEY_EXCHANGE - to: [%s]', message.length, context.remoteAddress);
         context.socket.write(message);
 
-        // Step 7: server sends SERVER_HELLO_DONE
-        console.log('[server]: send SERVER_HELLO_DONE to client - [%s]', context.remoteAddress);
         sendServerHelloDone(context);
     }
 
@@ -222,6 +216,8 @@ function createServer({ hostname = 'localhost', key, csr, cert } = {}) {
             .add(_k.Annotations.HANDSHAKE_HEADER, { type: _k.HandshakeType.DoneHello, length: 0 })
             .build();
 
+        // Step 7: server sends SERVER_HELLO_DONE
+        console.log('[server]: send [%s] bytes - SERVER_HELLO_DONE - to: [%s]', message.length, context.remoteAddress);
         context.socket.write(message);
     }
 

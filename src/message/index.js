@@ -164,9 +164,11 @@ function messageBuilder() {
 }
 
 function parseMessage(hexString) {
+    const message = {
+        _raw: hexString
+    };
+
     const buffer = Buffer.from(hexString, 'hex');
-    
-    const message = {};
 
     const context = {
         value: buffer,
