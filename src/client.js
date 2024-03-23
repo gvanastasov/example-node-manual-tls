@@ -1,5 +1,27 @@
 const net = require('net');
+const crypto = require('crypto');
+
 const { messageBuilder, parseMessage, _k } = require('./message');
+
+function clientContext({ serverAddress }) {
+  this.connection = {
+    serverAddress,
+    buffer: Buffer.alloc(0),
+    encryption: {
+      cipherSuite: null,
+      masterSecret: null,
+      version: null,
+      serverRandom: null,
+      serverPublicCert: null,
+      serverPublicKey: null,
+    },
+    session: {
+      id: null,
+    },
+  }
+
+  return this;
+}
 
 function connect(address, port) {
   const client = new net.Socket();
@@ -24,19 +46,19 @@ function connect(address, port) {
     },
   }
 
-  function handleMessage(context) {
-    let { contentType } = context.message[_k.Annotations.RECORD_HEADER];
+  function handleMessage(message, context) {
+    let { contentType } = message[_k.Annotations.RECORD_HEADER];
     switch (contentType) {
       case _k.ContentType.Handshake:
         {
-          let { type: handshakeType } = context.message[_k.Annotations.HANDSHAKE_HEADER];
+          let { type: handshakeType } = message[_k.Annotations.HANDSHAKE_HEADER];
           // todo: handle unknown handshake types
-          handles[contentType][handshakeType](context);
+          handles[contentType][handshakeType](message, context);
           break;
         }
       case _k.ContentType.Alert:
         {
-          handleAlert(context.message);
+          handleAlert(message);
           break;
         }
       default:
@@ -47,19 +69,19 @@ function connect(address, port) {
       }
   }
 
-  let buffer = Buffer.alloc(0);
-  var serverAddress = address + ':' + port;
-
   // Step 1
+  let serverAddress = `${address}:${port}`;
   console.log('[client]: send - SYN - to: [%s]', serverAddress);
 
   client.connect(port, address, () => {
-    client.on('data', onConnectionDataReceive);
+    const context = new clientContext({ serverAddress });
+
+    client.on('data', (data) => onConnectionDataReceive(data, context));
 
     // Step 2
-    console.log('[client]: received - SYN-ACK - from [%s]', serverAddress);
+    console.log('[client]: received - SYN-ACK - from [%s]', context.connection.serverAddress);
     
-    sendClientHello({ serverAddress });
+    sendClientHello();
   
     /**
      * @description handles byte stream received from the server.
@@ -68,7 +90,9 @@ function connect(address, port) {
      * 
      * @param {Buffer} data 
      */
-    function onConnectionDataReceive(data) {
+    function onConnectionDataReceive(data, context) {
+      let { buffer } = context.connection;
+
       buffer = Buffer.concat([buffer, data]);
 
       while(buffer.length >= _k.Dimensions.RecordHeader.Bytes) {
@@ -78,19 +102,19 @@ function connect(address, port) {
           let messageData = Uint8Array.prototype.slice.call(buffer, 0, messageLength + _k.Dimensions.RecordHeader.Bytes);
           buffer = buffer.subarray(messageLength + _k.Dimensions.RecordHeader.Bytes);
     
-          let message = parseMessage(messageData);
-          let context = { message, serverAddress };
-          handleMessage(context);
+          const message = parseMessage(messageData);
+          handleMessage(message, context);
         }
       }
     }
   });
 
-  function sendClientHello({ serverAddress }) {
-    let message = messageBuilder()
+  function sendClientHello() {
+    let message = new messageBuilder()
         .add(_k.Annotations.RECORD_HEADER, { contentType: _k.ContentType.Handshake, version: clientConfig.tlsVersion })
         .add(_k.Annotations.HANDSHAKE_HEADER, { type: _k.HandshakeType.ClientHello, length: 0 })
         .add(_k.Annotations.VERSION, { version: clientConfig.tlsVersion })
+        // todo: store random on the session context
         .add(_k.Annotations.RANDOM)
         // todo: pass existing session id if available
         .add(_k.Annotations.SESSION_ID, { id: '0' })
@@ -103,24 +127,62 @@ function connect(address, port) {
     client.write(message);
   }
 
-  function handleServerHello(context) {
+  function handleServerHello(message, context) {
+    context.connection.encryption.cipherSuite = message[_k.Annotations.CIPHER_SUITES][0].value;
+    context.connection.encryption.version = message[_k.Annotations.VERSION];
+    context.connection.encryption.serverRandom = message[_k.Annotations.RANDOM];
+    context.connection.session.id = message[_k.Annotations.SESSION_ID].sessionID;
+
     // Step 4
-    console.log('[client]: received [%s] bytes - SERVER_HELLO - from: [%s]', context.message._raw.length, context.serverAddress);
+    console.log('[client]: received [%s] bytes - SERVER_HELLO - from: [%s]', message._raw.length, context.connection.serverAddress);
   }
 
-  function handleCertificate(context) {
+  function handleCertificate(message, context) {
+    context.connection.encryption.serverPublicCert = message[_k.Annotations.CERTIFICATE].cert;
+
     // Step 5
-    console.log('[client]: received [%s] bytes - CERTIFICATE - from: [%s]', context.message._raw.length, context.serverAddress);
+    console.log('[client]: received [%s] bytes - CERTIFICATE - from: [%s]', message._raw.length, context.connection.serverAddress);
   }
 
-  function handleServerKeyExchange(context) {
+  function handleServerKeyExchange(message, context) {
     // Step 6
-    console.log('[client]: received [%s] bytes - SERVER_KEY_EXCHANGE - from: [%s]', context.message._raw.length, context.serverAddress);
+    console.log('[client]: received [%s] bytes - SERVER_KEY_EXCHANGE - from: [%s]', message._raw.length, context.connection.serverAddress);
+
+    const decryptedSignature = crypto.publicDecrypt(
+      {
+        key: context.connection.encryption.serverPublicCert,
+        padding: (() => {
+          switch (message.signature.encryptionAlgorithm) {
+              case _k.EncryptionAlgorithms.RSA:
+                  return crypto.constants.RSA_PKCS1_PADDING;
+              default:
+                  throw new Error('Unsupported encryption algorithm');
+          }
+        })(),
+      },
+      Buffer.from(message.signature.value, 'utf8'));
+
+    const computedHash = crypto.createHash((() => {
+      switch (message.signature.hashingFunction) {
+          case _k.HashingFunctions.SHA256:
+              return 'sha256';
+          default:
+              throw new Error('Unsupported hashing function');
+      }
+    })()).update(message.publicKey.value).digest('hex');
+
+    const isAuthenticated = decryptedSignature.toString('hex') === computedHash;
+    if (!isAuthenticated) {
+      console.error('[client]: server key exchange failed - invalid signature');
+      client.end();
+    }
+
+    context.connection.encryption.serverPublicKey = message.publicKey.value;
   }
 
-  function handleServerHelloDone(context) {
+  function handleServerHelloDone(message, context) {
     // Step 7
-    console.log('[client]: received [%s] bytes - SERVER_HELLO_DONE - from: [%s]', context.message._raw.length, context.serverAddress);
+    console.log('[client]: received [%s] bytes - SERVER_HELLO_DONE - from: [%s]', message._raw.length, context.connection.serverAddress);
   }
 
   function handleAlert(message) {

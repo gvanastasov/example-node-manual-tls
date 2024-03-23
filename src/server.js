@@ -181,7 +181,7 @@ function createServer({ hostname = 'localhost', key, csr, cert } = {}) {
         context.session.privateKey = privateKey;
         context.session.publicKey = publicKey;
         context.session.publicExport = publicKey.export({ type: 'spki', format: 'der' });
-        
+
         const passphrase = process.env.SERVER_PCERT_PASSPHRASE;
         if (!passphrase) {
             return alert({ 
