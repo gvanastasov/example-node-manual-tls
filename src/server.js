@@ -20,6 +20,7 @@ function session() {
     this.id = generateId();
     this.clientRandom = null;
     this.clientPublicKey = null;
+    this.clientEncrypted = false;
     this.serverRandom = null;
     this.privateKey = null;
     this.publicKey = null;
@@ -50,6 +51,7 @@ function createServer({ hostname = 'localhost', key, csr, cert } = {}) {
             [_k.HandshakeType.ClientHello]: handleClientHello,
             [_k.HandshakeType.ClientKeyExchange]: handleClientKeyExchange,
         },
+        [_k.ContentType.ChangeCipherSpec]: handleClientChangeCipherSpec,
     }
 
     function handleMessage(context) {
@@ -61,6 +63,10 @@ function createServer({ hostname = 'localhost', key, csr, cert } = {}) {
                 // todo: handle unknown handshake types
                 handles[contentType][handshakeType](context);
                 break;
+            }
+            case _k.ContentType.ChangeCipherSpec:
+            {
+                handles[contenType](context);   
             }
             default: 
             {
@@ -251,6 +257,12 @@ function createServer({ hostname = 'localhost', key, csr, cert } = {}) {
         // Step 8
         console.log('[server]: received [%s] bytes - CLIENT_KEY_EXCHANGE - from: [%s]', context.message._raw.length, context.remoteAddress);
         context.session.clientPublicKey = context.message[_k.Annotations.PUBLIC_KEY].value;
+    }
+
+    function handleClientChangeCipherSpec(context) {
+        // Step 9
+        console.log('[server]: received - CHANGE_CIPHER_SPEC - from: [%s]', context.remoteAddress);
+        context.session.clientEncrypted = true;
     }
 
     function alert(context, { level, description }) {

@@ -87,6 +87,9 @@ const MessageTemplates = {
             _k.Annotations.PUBLIC_KEY,
         ],
     },
+    [_k.ContentType.ChangeCipherSpec]: [
+        _k.Annotations.RECORD_HEADER,
+    ],
     [_k.ContentType.Alert]: [
         _k.Annotations.RECORD_HEADER,
         _k.Annotations.ALERT,
@@ -133,6 +136,7 @@ function messageBuilder() {
                 buffer.writeUInt16BE(buffer.length - 9, 6);
                 break;
             }
+            case ContentType.ChangeCipherSpec:
             case ContentType.Alert:
             {
                 let template = MessageTemplates[contentType];

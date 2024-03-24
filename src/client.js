@@ -17,6 +17,7 @@ function clientContext({ serverAddress }) {
       serverPublicKey: null,
       clientPrivateKey: null,
       clientPublicKey: null,
+      clientWriteKey: null,
     },
     session: {
       id: null,
@@ -197,6 +198,30 @@ function connect(address, port) {
     // Step 8
     console.log('[client]: sends [%s] bytes - CLIENT_KEY_EXCHANGE - to: [%s]', message.length, context.connection.serverAddress);
     client.write(message);
+
+    sendClientChangeCipherSpec(context);
+  }
+
+  function sendClientChangeCipherSpec(context) {
+    const masterKey = crypto.diffieHellman({
+      privateKey: context.connection.encryption.clientPrivateKey,
+      publicKey: context.connection.encryption.serverPublicKey,
+    });
+
+    context.connection.encryption.clientWriteKey = masterKey;
+
+    let message = new messageBuilder()
+      .add(_k.Annotations.RECORD_HEADER, { contentType: _k.ContentType.ChangeCipherSpec, version: clientConfig.tlsVersion })
+      .build();
+
+    // Step 9
+    console.log('[client]: sends [%s] bytes - CHANGE_CIPHER_SPEC - to: [%s]', message.length, context.connection.serverAddress);
+    client.write(message);
+
+    sendClientHandshakeFinished(context);
+  }
+
+  function sendClientHandshakeFinished(context) {
   }
 
   function handleAlert(message) {
