@@ -1,36 +1,9 @@
-const crypto = require('crypto');
-const { EncryptionAlgorithms, HashingFunctions } = require('./cipher-suites');
-
-function create({ encryptionAlhorithm, encryptionKey: { key, passphrase }, hashingFunction, data }) {
-    const hashed = crypto.createHash((() => {
-            switch (hashingFunction) {
-                case HashingFunctions.SHA256:
-                    return 'sha256';
-                default:
-                    throw new Error('Unsupported hashing function');
-            }
-        })()).update(data).digest();
-    
-    const encrypted = crypto.privateEncrypt(
-        {
-            key,
-            passphrase,
-            padding: (() => {
-                switch (encryptionAlhorithm) {
-                    case EncryptionAlgorithms.RSA:
-                        return crypto.constants.RSA_PKCS1_PADDING;
-                    default:
-                        throw new Error('Unsupported encryption algorithm');
-                }
-            })(),
-        },
-        Buffer.from(hashed, 'utf8'));
-
-    const buffer = Buffer.alloc(4 + encrypted.length);
-    buffer.writeUInt8(encryptionAlhorithm, 0);
+function create({ signature, encryptionAlgorithm, hashingFunction }) {
+    const buffer = Buffer.alloc(4 + signature.length);
+    buffer.writeUInt8(encryptionAlgorithm, 0);
     buffer.writeUInt8(hashingFunction, 1);
-    buffer.writeUInt16BE(encrypted.length, 2);
-    encrypted.copy(buffer, 4);
+    buffer.writeUInt16BE(signature.length, 2);
+    signature.copy(buffer, 4);
     return buffer;
 }
 

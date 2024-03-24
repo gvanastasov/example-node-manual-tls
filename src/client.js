@@ -1,6 +1,7 @@
 const net = require('net');
 const crypto = require('crypto');
 
+const { resolveHashingFunction, resolveEncryptionAlgorithm } = require('./utils/crypto');
 const { messageBuilder, parseMessage, _k } = require('./message');
 
 function clientContext({ serverAddress }) {
@@ -151,25 +152,15 @@ function connect(address, port) {
     const decryptedSignature = crypto.publicDecrypt(
       {
         key: context.connection.encryption.serverPublicCert,
-        padding: (() => {
-          switch (message.signature.encryptionAlgorithm) {
-              case _k.EncryptionAlgorithms.RSA:
-                  return crypto.constants.RSA_PKCS1_PADDING;
-              default:
-                  throw new Error('Unsupported encryption algorithm');
-          }
-        })(),
+        padding: resolveEncryptionAlgorithm(message.signature.encryptionAlgorithm),
       },
-      Buffer.from(message.signature.value, 'utf8'));
+      Buffer.from(message.signature.value, 'utf8')
+    );
 
-    const computedHash = crypto.createHash((() => {
-      switch (message.signature.hashingFunction) {
-          case _k.HashingFunctions.SHA256:
-              return 'sha256';
-          default:
-              throw new Error('Unsupported hashing function');
-      }
-    })()).update(message.publicKey.value).digest('hex');
+    const computedHash = crypto
+      .createHash(resolveHashingFunction(message.signature.hashingFunction))
+      .update(message.publicKey.value)
+      .digest('hex');
 
     const isAuthenticated = decryptedSignature.toString('hex') === computedHash;
     if (!isAuthenticated) {

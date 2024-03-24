@@ -75,3 +75,12 @@ Most likely not all error cases are handled, with sending proper alert signal ba
 No self recover nor any retry logic in case of failed tls phase, connection is simply terminated.
 Server is using self-signed certs (generated via OpenSSL).
 Sessions are kept in-memory process.
+
+## Crypto
+
+Resolved cipher suite for the demo is `TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA`, which stands for:
+
+1. ECDHE - describes the key exchange algorithm, using `Elliptic Curve Deffie-Hellman Ephemeral`, in other words securely negotiate a shared secret between the client and server, separate from the server certs. The picked curve is `x25519`
+2. RSA - describes the `certificates` encryption algorithm, used for `signing key exchange` params as well as for `authentication`
+3. AES_128_CBC - describes the `symmetric encryption` algorithm, used during `data` transfer, stands for Advanced Encrpytion Standard with 128-bit key length and Cipher Block Chaining mode, when encrypting data
+4. SHA - describes the `hashing` algorithm, used for integrity verification

@@ -3,6 +3,7 @@ const os = require('os');
 const crypto = require('crypto');
 
 const { generateRandomBytes } = require('./utils/hex');
+const { resolveHashingFunction, resolveEncryptionAlgorithm } = require('./utils/crypto');
 const { messageBuilder, parseMessage, _k  } = require('./message');
 
 // move out of here
@@ -176,12 +177,6 @@ function createServer({ hostname = 'localhost', key, csr, cert } = {}) {
     }
 
     function sendServerKeyExchange(context) {
-        // todo: use curve based on agreement in cipher suite and remove hardcoded value
-        let { privateKey, publicKey } = generateEphemeralKeys('x25519');
-        context.session.privateKey = privateKey;
-        context.session.publicKey = publicKey;
-        context.session.publicExport = publicKey.export({ type: 'spki', format: 'der' });
-
         const passphrase = process.env.SERVER_PCERT_PASSPHRASE;
         if (!passphrase) {
             return alert({ 
@@ -190,16 +185,37 @@ function createServer({ hostname = 'localhost', key, csr, cert } = {}) {
             });
         }
 
-        let message = messageBuilder()
+        // todo: move type of asymetric encryption and curve to constants instead
+        // and it should be part of the cipher suite resolver and not hardcoded here.  
+        const { privateKey, publicKey } = crypto.generateKeyPairSync('x25519');
+        const publicExport = publicKey.export({ type: 'spki', format: 'der' });
+
+        context.session.privateKey = privateKey;
+        context.session.publicKey = publicKey;
+
+        const hash = crypto
+            .createHash(resolveHashingFunction(_k.HashingFunctions.SHA256))
+            .update(publicExport)
+            .digest();
+
+        const signature = crypto.privateEncrypt(
+            {
+                key: serverConfig.key,
+                passphrase,
+                padding: resolveEncryptionAlgorithm(_k.EncryptionAlgorithms.RSA)
+            },
+            Buffer.from(hash, 'utf8')
+        );
+
+        const message = messageBuilder()
             .add(_k.Annotations.RECORD_HEADER, { contentType: _k.ContentType.Handshake, version: serverConfig.version })
             .add(_k.Annotations.HANDSHAKE_HEADER, { type: _k.HandshakeType.ServerKeyExchange, length: 0 })
             .add(_k.Annotations.CURVE_INFO, { curve: _k.EllipticCurves.x25519 })
-            .add(_k.Annotations.PUBLIC_KEY, { key: context.session.publicExport })
-            .add(_k.Annotations.SIGNATURE, {
-                encryptionAlhorithm: _k.EncryptionAlgorithms.RSA,
-                encryptionKey: { key: serverConfig.key, passphrase },
-                hashingFunction: _k.HashingFunctions.SHA256,
-                data: context.session.publicExport
+            .add(_k.Annotations.PUBLIC_KEY, { key: publicExport })
+            .add(_k.Annotations.SIGNATURE, { 
+                signature, 
+                encryptionAlgorithm: _k.EncryptionAlgorithms.RSA, 
+                hashingFunction: _k.HashingFunctions.SHA256
             })
             .build();
 
@@ -208,6 +224,11 @@ function createServer({ hostname = 'localhost', key, csr, cert } = {}) {
         context.socket.write(message);
 
         sendServerHelloDone(context);
+    }
+
+        function generateEphemeralKeys(curve) {
+        const { publicKey, privateKey } = crypto.generateKeyPairSync(curve);
+        return { privateKey, publicKey };
     }
 
     function sendServerHelloDone(context) {
@@ -239,11 +260,6 @@ function createServer({ hostname = 'localhost', key, csr, cert } = {}) {
             }
         }
         return null;
-    }
-
-    function generateEphemeralKeys(curve) {
-        const { publicKey, privateKey } = crypto.generateKeyPairSync(curve);
-        return { privateKey, publicKey };
     }
 
     const address = () => {
