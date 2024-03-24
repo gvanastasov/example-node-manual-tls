@@ -19,6 +19,7 @@ function session() {
     
     this.id = generateId();
     this.clientRandom = null;
+    this.clientPublicKey = null;
     this.serverRandom = null;
     this.privateKey = null;
     this.publicKey = null;
@@ -47,6 +48,7 @@ function createServer({ hostname = 'localhost', key, csr, cert } = {}) {
     const handles = {
         [_k.ContentType.Handshake]: {
             [_k.HandshakeType.ClientHello]: handleClientHello,
+            [_k.HandshakeType.ClientKeyExchange]: handleClientKeyExchange,
         },
     }
 
@@ -70,6 +72,15 @@ function createServer({ hostname = 'localhost', key, csr, cert } = {}) {
 
     function handleConnection(socket) {
         const remoteAddress = socket.remoteAddress + ':' + socket.remotePort; 
+        
+        // todo: move to class/func
+        let context = { 
+            message: null,
+            session: null,
+            socket, 
+            remoteAddress
+        };
+
         let buffer = Buffer.alloc(0);
 
         // Step 1 (handled by TCP server)
@@ -93,8 +104,7 @@ function createServer({ hostname = 'localhost', key, csr, cert } = {}) {
                     let messageData = Uint8Array.prototype.slice.call(buffer, 0, messageLength + _k.Dimensions.RecordHeader.Bytes);
                     buffer = buffer.subarray(messageLength + _k.Dimensions.RecordHeader.Bytes);
         
-                    let message = parseMessage(messageData);
-                    let context = { message, socket, remoteAddress };
+                    context.message = parseMessage(messageData);
                     handleMessage(context);
                 }
             }
@@ -213,7 +223,7 @@ function createServer({ hostname = 'localhost', key, csr, cert } = {}) {
             .add(_k.Annotations.CURVE_INFO, { curve: _k.EllipticCurves.x25519 })
             .add(_k.Annotations.PUBLIC_KEY, { key: publicExport })
             .add(_k.Annotations.SIGNATURE, { 
-                signature, 
+                signature,
                 encryptionAlgorithm: _k.EncryptionAlgorithms.RSA, 
                 hashingFunction: _k.HashingFunctions.SHA256
             })
@@ -224,11 +234,6 @@ function createServer({ hostname = 'localhost', key, csr, cert } = {}) {
         context.socket.write(message);
 
         sendServerHelloDone(context);
-    }
-
-        function generateEphemeralKeys(curve) {
-        const { publicKey, privateKey } = crypto.generateKeyPairSync(curve);
-        return { privateKey, publicKey };
     }
 
     function sendServerHelloDone(context) {
@@ -242,6 +247,12 @@ function createServer({ hostname = 'localhost', key, csr, cert } = {}) {
         context.socket.write(message);
     }
 
+    function handleClientKeyExchange(context) {
+        // Step 8
+        console.log('[server]: received [%s] bytes - CLIENT_KEY_EXCHANGE - from: [%s]', context.message._raw.length, context.remoteAddress);
+        context.session.clientPublicKey = context.message[_k.Annotations.PUBLIC_KEY].value;
+    }
+
     function alert(context, { level, description }) {
         const message = messageBuilder()
             .add(_k.Annotations.RECORD_HEADER, { contentType: _k.ContentType.Alert, version: serverConfig.version })
@@ -251,6 +262,7 @@ function createServer({ hostname = 'localhost', key, csr, cert } = {}) {
         context.socket.end();
     }
 
+    // todo: move to utils and rename to find first common or w/e
     function negotiateCipherSuite(clientSuites, serverSuites) {
         for (let s of serverSuites) {
             for (let c of clientSuites) {

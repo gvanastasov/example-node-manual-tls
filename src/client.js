@@ -15,6 +15,8 @@ function clientContext({ serverAddress }) {
       serverRandom: null,
       serverPublicCert: null,
       serverPublicKey: null,
+      clientPrivateKey: null,
+      clientPublicKey: null,
     },
     session: {
       id: null,
@@ -174,6 +176,27 @@ function connect(address, port) {
   function handleServerHelloDone(message, context) {
     // Step 7
     console.log('[client]: received [%s] bytes - SERVER_HELLO_DONE - from: [%s]', message._raw.length, context.connection.serverAddress);
+    sendClientKeyExchange(context);
+  }
+
+  function sendClientKeyExchange(context) {
+    // todo: move type of asymetric encryption and curve to constants instead
+    // and it should be part of the cipher suite resolver and not hardcoded here.  
+    const { privateKey, publicKey } = crypto.generateKeyPairSync('x25519');
+    const publicExport = publicKey.export({ type: 'spki', format: 'der' });
+
+    context.connection.encryption.clientPrivateKey = privateKey;
+    context.connection.encryption.clientPublicKey = publicKey;
+
+    let message = new messageBuilder()
+      .add(_k.Annotations.RECORD_HEADER, { contentType: _k.ContentType.Handshake, version: clientConfig.tlsVersion })
+      .add(_k.Annotations.HANDSHAKE_HEADER, { type: _k.HandshakeType.ClientKeyExchange })
+      .add(_k.Annotations.PUBLIC_KEY, { key: publicExport })
+      .build();
+
+    // Step 8
+    console.log('[client]: sends [%s] bytes - CLIENT_KEY_EXCHANGE - to: [%s]', message.length, context.connection.serverAddress);
+    client.write(message);
   }
 
   function handleAlert(message) {

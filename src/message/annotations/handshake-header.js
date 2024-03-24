@@ -45,6 +45,13 @@ const HandshakeType = {
      * application data phase.
      */
     Finished: 0x14,
+
+    /**
+     * The client sends a message to the server that contains
+     * the pre-master secret, encrypted with the server's
+     * public key.
+     */
+    ClientKeyExchange: 0x10,
 };
 
 /**

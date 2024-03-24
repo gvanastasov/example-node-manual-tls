@@ -81,6 +81,11 @@ const MessageTemplates = {
             _k.Annotations.RECORD_HEADER,
             _k.Annotations.HANDSHAKE_HEADER,
         ],
+        [_k.HandshakeType.ClientKeyExchange]: [
+            _k.Annotations.RECORD_HEADER,
+            _k.Annotations.HANDSHAKE_HEADER,
+            _k.Annotations.PUBLIC_KEY,
+        ],
     },
     [_k.ContentType.Alert]: [
         _k.Annotations.RECORD_HEADER,
