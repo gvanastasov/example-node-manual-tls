@@ -86,6 +86,15 @@ const MessageTemplates = {
             _k.Annotations.HANDSHAKE_HEADER,
             _k.Annotations.PUBLIC_KEY,
         ],
+        [_k.HandshakeType.ClientHandshakeFinished]: [
+            _k.Annotations.RECORD_HEADER,
+            _k.Annotations.ENCRYPTION_IV,
+            _k.Annotations.ENCRYPTED_DATA,
+        ],
+        [_k.HandshakeType.Finished]: [
+            _k.Annotations.HANDSHAKE_HEADER,
+            _k.Annotations.VERIFY_DATA,
+        ]
     },
     [_k.ContentType.ChangeCipherSpec]: [
         _k.Annotations.RECORD_HEADER,
@@ -96,77 +105,133 @@ const MessageTemplates = {
     ],
 }
 
+const headersOrder = [
+    _k.Annotations.RECORD_HEADER,
+    _k.Annotations.HANDSHAKE_HEADER,
+].reverse();
+
 function messageBuilder() {
+    this.headers = {};
     this.annotations = {};
 
     this.add = (annotation, args) => {
-        this.annotations[annotation] = { ...args };
+        if (annotation == _k.Annotations.RECORD_HEADER) {
+            this.addHeader(annotation, args);
+        } else if (annotation == _k.Annotations.HANDSHAKE_HEADER) {
+            this.addHeader(annotation, args);
+        } else {
+            this.annotations[annotation] = { ...args };
+        }
+
         return this;
     }
 
-    this.build = () => {
-        let buffer = Buffer.alloc(0);
-        let { contentType } = this.annotations[_k.Annotations.RECORD_HEADER];
-        switch (contentType) {
-            case ContentType.Handshake:
-            {
-                let { type } = this.annotations[_k.Annotations.HANDSHAKE_HEADER];
-                let template = MessageTemplates[contentType][type];
-                if (!template) {
-                    // todo: throw instead and catch upstream
-                    console.error('No message template found for the given handshake type...');
-                    break;
-                }
+    this.addHeader = (type, args) => {
+        this.headers[type] = { ...args };
+        return this;
+    }
 
-                for (let annotation of template) {
-                    let args = this.annotations[annotation];
+    this.build = ({ format } = { format: 'buffer' }) => {
+        let result = {
+            data: {},
+            buffer: Buffer.alloc(0),
+        }
+        // let { contentType } = this.annotations[_k.Annotations.RECORD_HEADER];
+        // switch (contentType) {
+        //     case ContentType.Handshake:
+        //     {
+        //         let { type } = this.annotations[_k.Annotations.HANDSHAKE_HEADER];
+        //         let template = MessageTemplates[contentType][type];
+        //         if (!template) {
+        //             // todo: throw instead and catch upstream
+        //             console.error('No message template found for the given handshake type...');
+        //             break;
+        //         }
 
-                    if (!args) {
-                        console.log('Missing protocol message annotation: ', annotation);
-                        // todo: throw instead and catch upstream
-                        continue;
-                    }
+        //         for (let annotation of template) {
+        //             let args = this.annotations[annotation];
 
-                    let annotationBuffer = create(annotation, args);
+        //             if (!args) {
+        //                 console.log('Missing protocol message annotation: ', annotation);
+        //                 // todo: throw instead and catch upstream
+        //                 continue;
+        //             }
 
-                    buffer = Buffer.concat([buffer, annotationBuffer]);
-                }
+        //             let annotationBuffer = create(annotation, args);
 
-                // note: set the length of the message following the handshake header
-                buffer.writeUInt16BE(buffer.length - 9, 6);
-                break;
-            }
-            case ContentType.ChangeCipherSpec:
-            case ContentType.Alert:
-            {
-                let template = MessageTemplates[contentType];
-                for (let annotation of template) {
-                    let args = this.annotations[annotation];
+        //             buffer = Buffer.concat([buffer, annotationBuffer]);
+        //         }
 
-                    if (!args) {
-                        console.log('Missing protocol message annotation: ', annotation);
-                        // todo: throw instead and catch upstream
-                        continue;
-                    }
+        //         // note: set the length of the message following the handshake header
+        //         buffer.writeUInt16BE(buffer.length - 9, 6);
+        //         break;
+        //     }
+        //     case ContentType.ChangeCipherSpec:
+        //     case ContentType.Alert:
+        //     {
+        //         let template = MessageTemplates[contentType];
+        //         for (let annotation of template) {
+        //             let args = this.annotations[annotation];
 
-                    let annotationBuffer = create(annotation, args);
+        //             if (!args) {
+        //                 console.log('Missing protocol message annotation: ', annotation);
+        //                 // todo: throw instead and catch upstream
+        //                 continue;
+        //             }
 
-                    buffer = Buffer.concat([buffer, annotationBuffer]);
-                }
-                break; 
-            }
-            default: 
-            {
+        //             let annotationBuffer = create(annotation, args);
+
+        //             buffer = Buffer.concat([buffer, annotationBuffer]);
+        //         }
+        //         break; 
+        //     }
+        //     default: 
+        //     {
+        //         // todo: throw instead and catch upstream
+        //         console.error('Not implemented yet...');
+        //         break;
+        //     }
+        // }
+
+        // // note: set the length of the message following the record header
+        // buffer.writeUInt16BE(buffer.length - 5, 3);
+
+        for (let annotation in this.annotations) {
+            let args = this.annotations[annotation];
+            
+            if (!args) {
+                console.log('Missing protocol message annotation: ', annotation);
                 // todo: throw instead and catch upstream
-                console.error('Not implemented yet...');
-                break;
+                continue;
+            }
+
+            let annotationBuffer = create(annotation, args);
+            result.buffer = Buffer.concat([result.buffer, annotationBuffer]);
+
+            if (format === 'object') {
+                result.data[annotation] = { _raw: annotationBuffer, ...args };
             }
         }
 
-        // note: set the length of the message following the record header
-        buffer.writeUInt16BE(buffer.length - 5, 3);
+        headersOrder.forEach((header) => {
+            let args = this.headers[header];
+            if (!args) {
+                return;
+            }
 
-        return buffer;
+            let headerBuffer = create(header, { ...args, length: result.buffer.length });
+            result.buffer = Buffer.concat([headerBuffer, result.buffer]);
+
+            if (format === 'object') {
+                result.data[header] = { _raw: headerBuffer, ...args };
+            }
+        });
+
+        if (format === 'object') {
+            return result;
+        }
+
+        return result.buffer;
     }
 
     return this;

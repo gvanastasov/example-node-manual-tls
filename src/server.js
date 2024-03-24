@@ -66,7 +66,7 @@ function createServer({ hostname = 'localhost', key, csr, cert } = {}) {
             }
             case _k.ContentType.ChangeCipherSpec:
             {
-                handles[contenType](context);   
+                handles[contentType](context);   
             }
             default: 
             {
@@ -263,6 +263,18 @@ function createServer({ hostname = 'localhost', key, csr, cert } = {}) {
         // Step 9
         console.log('[server]: received - CHANGE_CIPHER_SPEC - from: [%s]', context.remoteAddress);
         context.session.clientEncrypted = true;
+
+        const masterKey = crypto.diffieHellman({
+            privateKey: context.session.privateKey,
+            publicKey: crypto.createPublicKey(
+            {
+                key: context.session.clientPublicKey,
+                format: 'der',
+                type: 'spki',
+            }),
+        });
+
+        console.log(masterKey.toString('hex'));
     }
 
     function alert(context, { level, description }) {

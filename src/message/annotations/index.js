@@ -5,6 +5,8 @@ const Annotations = {
     COMPRESSION_METHODS: 'compressionMethods',
     CURVE_INFO: 'curveInfo',
     EXTENSIONS: 'extensions',
+    ENCRYPTION_IV: 'encryptionIV',
+    ENCRYPTED_DATA: 'encryptedData',
     HANDSHAKE_HEADER: 'handshakeHeader',
     PUBLIC_KEY: 'publicKey',
     RANDOM: 'random',
@@ -12,6 +14,7 @@ const Annotations = {
     SESSION_ID: 'sessionId',
     SIGNATURE: 'signature',
     VERSION: 'version',
+    VERIFY_DATA: 'verifyData',
 }
 
 const modules = {
@@ -21,6 +24,8 @@ const modules = {
     [Annotations.COMPRESSION_METHODS]: require('./compression-methods'),
     [Annotations.CURVE_INFO]: require('./curve-info'),
     [Annotations.EXTENSIONS]: require('./extensions'),
+    [Annotations.ENCRYPTION_IV]: require('./encryption-iv'),
+    [Annotations.ENCRYPTED_DATA]: require('./encrypted-data'),
     [Annotations.HANDSHAKE_HEADER]: require('./handshake-header'),
     [Annotations.PUBLIC_KEY]: require('./public-key'),
     [Annotations.RANDOM]: require('./random'),

@@ -51,6 +51,7 @@ function read(context) {
     const randomBytes = context.next(28);
 
     return {
+        _raw: Buffer.concat([timestampBytes, randomBytes]),
         timestamp: timestamp,
         randomBytes: randomBytes
     };
