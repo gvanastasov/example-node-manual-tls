@@ -50,6 +50,7 @@ function createServer({ hostname = 'localhost', key, csr, cert } = {}) {
         [_k.ContentType.Handshake]: {
             [_k.HandshakeType.ClientHello]: handleClientHello,
             [_k.HandshakeType.ClientKeyExchange]: handleClientKeyExchange,
+            [_k.HandshakeType.ClientHandshakeFinished]: handleClientHandshakeFinished,
         },
         [_k.ContentType.ChangeCipherSpec]: handleClientChangeCipherSpec,
     }
@@ -99,7 +100,6 @@ function createServer({ hostname = 'localhost', key, csr, cert } = {}) {
         socket.on('error', onConnectionError);
         socket.once('close', onConnectionClose);
 
-
         function onConnectionDataReceive (data) {
             buffer = Buffer.concat([buffer, data]);
 
@@ -109,12 +109,21 @@ function createServer({ hostname = 'localhost', key, csr, cert } = {}) {
                 if (buffer.length >= messageLength + _k.Dimensions.RecordHeader.Bytes) {
                     let messageData = Uint8Array.prototype.slice.call(buffer, 0, messageLength + _k.Dimensions.RecordHeader.Bytes);
                     buffer = buffer.subarray(messageLength + _k.Dimensions.RecordHeader.Bytes);
-        
-                    context.message = parseMessage(messageData);
+                    
+                    context.message = parseMessage(
+                        messageData, 
+                        context.session?.clientEncrypted, decrypt);
                     handleMessage(context);
                 }
             }
         };
+
+        function decrypt({ iv, data }) {
+            const decipher = crypto.createDecipheriv('aes-128-cbc', context.session.client_write_key, iv);
+            let decrypted = decipher.update(data);
+            decrypted = Buffer.concat([decrypted, decipher.final()]);
+            return decrypted;
+        }
 
         function onConnectionError(err) {
             console.log('[%s] connection error: %s', remoteAddress, err.message);  
@@ -140,15 +149,16 @@ function createServer({ hostname = 'localhost', key, csr, cert } = {}) {
 
         // Step 3.2
         // todo: check session
+        context.session = new session();
+        context.session.clientRandom = context.message[_k.Annotations.RANDOM]._raw;
+
+        // todo: improve session management
+        sessions.push(context.session);
         
         sendServerHello(context);
     }
 
     function sendServerHello(context) {
-        // todo: improve session management
-        context.session = new session();
-        sessions.push(context.session);
-
         let requestCipherSuites = context.message[_k.Annotations.CIPHER_SUITES].map(x => x.value);
         let negotiatedCipher = negotiateCipherSuite(requestCipherSuites, serverConfig.cipherSuites);
 
@@ -169,11 +179,12 @@ function createServer({ hostname = 'localhost', key, csr, cert } = {}) {
             .add(_k.Annotations.SESSION_ID, { id: context.session.id })
             .add(_k.Annotations.CIPHER_SUITES, { ciphers: [negotiatedCipher] })
             .add(_k.Annotations.COMPRESSION_METHODS, { methods: [_k.CompressionMethods.NULL] })
-            .build();
+            .build({ format: 'object' });
 
         // Step 4: server sends SERVER_HELLO
-        console.log('[server]: send [%s] bytes - SERVER_HELLO - to: [%s]', message.length, context.remoteAddress);
-        context.socket.write(message);
+        console.log('[server]: send [%s] bytes - SERVER_HELLO - to: [%s]', message.buffer.length, context.remoteAddress);
+        context.socket.write(message.buffer);
+        context.session.serverRandom = message.data[_k.Annotations.RANDOM]._raw;
 
         sendCertificate(context);
     }
@@ -264,17 +275,57 @@ function createServer({ hostname = 'localhost', key, csr, cert } = {}) {
         console.log('[server]: received - CHANGE_CIPHER_SPEC - from: [%s]', context.remoteAddress);
         context.session.clientEncrypted = true;
 
-        const masterKey = crypto.diffieHellman({
+        const preMasterKey = crypto.diffieHellman({
             privateKey: context.session.privateKey,
-            publicKey: crypto.createPublicKey(
-            {
+            publicKey: crypto.createPublicKey({
                 key: context.session.clientPublicKey,
                 format: 'der',
-                type: 'spki',
-            }),
+                type: 'spki'
+            })
         });
 
-        console.log(masterKey.toString('hex'));
+        const seed = Buffer.concat([
+            Buffer.from('master secret'), 
+            context.session.clientRandom,
+            context.session.serverRandom
+          ]);
+
+          const a0 = seed;
+          const a1 = crypto.createHmac('sha256', preMasterKey).update(a0).digest();
+          const a2 = crypto.createHmac('sha256', preMasterKey).update(a1).digest();
+      
+          const p1 = crypto.createHmac('sha256', preMasterKey).update(Buffer.concat([a1, seed])).digest();
+          const p2 = crypto.createHmac('sha256', preMasterKey).update(Buffer.concat([a2, seed])).digest();
+      
+          context.session.masterSecret = Buffer.concat([p1.subarray(0, 32), p2.subarray(0, 16)]);
+      
+          const seedKE = Buffer.concat([
+              Buffer.from('key expansion'),
+              context.session.clientRandom,
+              context.session.serverRandom
+          ]);
+      
+          const pValues = [];
+          let a = seedKE;
+          while (pValues.length < 4) {
+              a = crypto.createHmac('sha256', context.session.masterSecret).update(a).digest();
+              pValues.push(crypto.createHmac('sha256', context.session.masterSecret).update(Buffer.concat([a, seedKE])).digest());
+          }
+      
+          // Concatenate all the p values to obtain a single buffer p
+          const p = Buffer.concat(pValues);
+      
+          context.session.client_write_mac_key = p.subarray(0, 20);
+          context.session.server_write_mac_key = p.subarray(20, 40);
+          context.session.client_write_key = p.subarray(40, 56);
+          context.session.server_write_key = p.subarray(56, 72);
+          context.session.client_write_iv = p.subarray(72, 88);
+          context.session.server_write_iv = p.subarray(88, 104);
+    }
+
+    function handleClientHandshakeFinished(context) {
+        // Step 10
+        console.log('[server]: received - CLIENT_HANDSHAKE_FINISHED - from: [%s]', context.remoteAddress);
     }
 
     function alert(context, { level, description }) {

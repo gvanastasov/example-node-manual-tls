@@ -3,7 +3,7 @@ function create({ data }) {
 }
 
 function read(context) {
-    return context.next(16);
+    return context.remaining();
 }
 
 module.exports = {

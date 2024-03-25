@@ -137,7 +137,7 @@ function connect(address, port) {
         .build({ format: 'object' });
     
     // Step 3
-    console.log('[client]: sends [%s] bytes - ACK & CLIENT_HELLO - to: [%s]', message.length, serverAddress);
+    console.log('[client]: sends [%s] bytes - ACK & CLIENT_HELLO - to: [%s]', message.buffer.length, serverAddress);
     client.write(message.buffer);
 
     context.connection.encryption.clientRandom = message.data[_k.Annotations.RANDOM]._raw;
@@ -293,7 +293,7 @@ function connect(address, port) {
 
     let encryptedMessageInput = Buffer.concat([
       new messageBuilder()
-        .add(_k.Annotations.HANDSHAKE_HEADER, { type: _k.HandshakeType.Finished, length: 12 })
+        .add(_k.Annotations.HANDSHAKE_HEADER, { type: _k.HandshakeType.ClientHandshakeFinished, length: 12 })
         .build(),
       verifyData
     ]);

@@ -45,6 +45,11 @@ const _k = {
 
 // protocol message templates
 const MessageTemplates = {
+    encrypted: [
+        _k.Annotations.RECORD_HEADER,
+        _k.Annotations.ENCRYPTION_IV,
+        _k.Annotations.ENCRYPTED_DATA,
+    ],
     [_k.ContentType.Handshake]: {
         [_k.HandshakeType.ClientHello]: [
             _k.Annotations.RECORD_HEADER,
@@ -88,13 +93,9 @@ const MessageTemplates = {
         ],
         [_k.HandshakeType.ClientHandshakeFinished]: [
             _k.Annotations.RECORD_HEADER,
-            _k.Annotations.ENCRYPTION_IV,
-            _k.Annotations.ENCRYPTED_DATA,
-        ],
-        [_k.HandshakeType.Finished]: [
             _k.Annotations.HANDSHAKE_HEADER,
             _k.Annotations.VERIFY_DATA,
-        ]
+        ],
     },
     [_k.ContentType.ChangeCipherSpec]: [
         _k.Annotations.RECORD_HEADER,
@@ -136,65 +137,6 @@ function messageBuilder() {
             data: {},
             buffer: Buffer.alloc(0),
         }
-        // let { contentType } = this.annotations[_k.Annotations.RECORD_HEADER];
-        // switch (contentType) {
-        //     case ContentType.Handshake:
-        //     {
-        //         let { type } = this.annotations[_k.Annotations.HANDSHAKE_HEADER];
-        //         let template = MessageTemplates[contentType][type];
-        //         if (!template) {
-        //             // todo: throw instead and catch upstream
-        //             console.error('No message template found for the given handshake type...');
-        //             break;
-        //         }
-
-        //         for (let annotation of template) {
-        //             let args = this.annotations[annotation];
-
-        //             if (!args) {
-        //                 console.log('Missing protocol message annotation: ', annotation);
-        //                 // todo: throw instead and catch upstream
-        //                 continue;
-        //             }
-
-        //             let annotationBuffer = create(annotation, args);
-
-        //             buffer = Buffer.concat([buffer, annotationBuffer]);
-        //         }
-
-        //         // note: set the length of the message following the handshake header
-        //         buffer.writeUInt16BE(buffer.length - 9, 6);
-        //         break;
-        //     }
-        //     case ContentType.ChangeCipherSpec:
-        //     case ContentType.Alert:
-        //     {
-        //         let template = MessageTemplates[contentType];
-        //         for (let annotation of template) {
-        //             let args = this.annotations[annotation];
-
-        //             if (!args) {
-        //                 console.log('Missing protocol message annotation: ', annotation);
-        //                 // todo: throw instead and catch upstream
-        //                 continue;
-        //             }
-
-        //             let annotationBuffer = create(annotation, args);
-
-        //             buffer = Buffer.concat([buffer, annotationBuffer]);
-        //         }
-        //         break; 
-        //     }
-        //     default: 
-        //     {
-        //         // todo: throw instead and catch upstream
-        //         console.error('Not implemented yet...');
-        //         break;
-        //     }
-        // }
-
-        // // note: set the length of the message following the record header
-        // buffer.writeUInt16BE(buffer.length - 5, 3);
 
         for (let annotation in this.annotations) {
             let args = this.annotations[annotation];
@@ -237,7 +179,7 @@ function messageBuilder() {
     return this;
 }
 
-function parseMessage(hexString) {
+function parseMessage(hexString, encrypted = false, decryptFunc = null) {
     const message = {
         _raw: hexString
     };
@@ -251,54 +193,73 @@ function parseMessage(hexString) {
             let current = this.pointer;
             this.pointer += len;
             return this.value.subarray(current, current + len);
+        },
+        remaining() {
+            return this.value.subarray(this.pointer);
         }
     }
 
+    // todo: error handling - missing header
     message[_k.Annotations.RECORD_HEADER] = read(_k.Annotations.RECORD_HEADER, context);
+    let template = null;
+    if (encrypted) {
+        template = MessageTemplates.encrypted;
+    } else {
+        let { contentType } = message[_k.Annotations.RECORD_HEADER];
 
-    let { contentType } = message[_k.Annotations.RECORD_HEADER];
+        switch (contentType) {
+            case ContentType.Handshake:
+            {
+                // todo: error handling - missing header
+                message[_k.Annotations.HANDSHAKE_HEADER] = read(_k.Annotations.HANDSHAKE_HEADER, context);
 
-    switch (contentType) {
-        case ContentType.Handshake:
-        {
-            message[_k.Annotations.HANDSHAKE_HEADER] = read(_k.Annotations.HANDSHAKE_HEADER, context);
-
-            let { type: handshakeType } = message[_k.Annotations.HANDSHAKE_HEADER];
-            let template = MessageTemplates[contentType][handshakeType];
-
-            if (!template) {
-                // todo: throw instead and catch upstream
-                console.error('No message template found for the given handshake type...');
+                let { type: handshakeType } = message[_k.Annotations.HANDSHAKE_HEADER];
+                template = MessageTemplates[contentType][handshakeType];
                 break;
             }
-
-            for (let annotation of template) {
-                // dirty: we already read those from the buffer and the pointer is already moved
-                if (annotation === _k.Annotations.RECORD_HEADER || 
-                    annotation === _k.Annotations.HANDSHAKE_HEADER) {
-                    continue;
-                }
-
-                try {
-                    message[annotation] = read(annotation, context);
-                } catch (error) {
-                    // todo: throw instead and catch upstream
-                    console.error('Failed to read annotation: ', annotation);
-                }
+            case ContentType.ChangeCipherSpec:
+            {
+                template = MessageTemplates[contentType];
+                break;
             }
+            case ContentType.Alert:
+            {
+                console.error('Not implemented yet...');
+                break;
+            }
+            default: 
+            {
+                console.error('Not implemented yet...');
+                break;
+            }
+        }
+    }
 
-            break;
+    if (!template) {
+        // todo: throw instead and catch upstream
+        console.error('No message template found for the given handshake type...');
+    }
+
+    for (let annotation of template) {
+        // dirty: we already read those from the buffer and the pointer is already moved
+        if (annotation === _k.Annotations.RECORD_HEADER || 
+            annotation === _k.Annotations.HANDSHAKE_HEADER) {
+            continue;
         }
-        case ContentType.Alert:
-        {
-            console.error('Not implemented yet...');
-            break;
+
+        try {
+            message[annotation] = read(annotation, context);
+        } catch (error) {
+            // todo: throw instead and catch upstream
+            console.error('Failed to read annotation: ', annotation);
         }
-        default: 
-        {
-            console.error('Not implemented yet...');
-            break;
-        }
+    }
+
+    if (encrypted && decryptFunc) {
+        let decryptedMessagePayload = decryptFunc({ iv: message[_k.Annotations.ENCRYPTION_IV], data: message[_k.Annotations.ENCRYPTED_DATA] });
+        let decryptedMessage = parseMessage(Buffer.concat([message[_k.Annotations.RECORD_HEADER]._raw, decryptedMessagePayload]));
+
+        return { ...message, ...decryptedMessage };
     }
 
     return message;
