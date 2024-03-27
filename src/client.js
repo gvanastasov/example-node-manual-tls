@@ -66,8 +66,6 @@ function connect(address, port) {
           let { type: handshakeType } = message[_k.Annotations.HANDSHAKE_HEADER];
           // todo: handle unknown handshake types
           handles[contentType][handshakeType](message, context);
-
-          context.connection.encryption.digest.in(message._raw);
           break;
         }
       case _k.ContentType.Alert:
@@ -150,12 +148,16 @@ function connect(address, port) {
     context.connection.encryption.serverRandom = message[_k.Annotations.RANDOM];
     context.connection.session.id = message[_k.Annotations.SESSION_ID].sessionID;
 
+    context.connection.encryption.digest.in(message._raw);
+
     // Step 4
     console.log('[client]: received [%s] bytes - SERVER_HELLO - from: [%s]', message._raw.length, context.connection.serverAddress);
   }
 
   function handleCertificate(message, context) {
     context.connection.encryption.serverPublicCert = message[_k.Annotations.CERTIFICATE].cert;
+
+    context.connection.encryption.digest.in(message._raw);
 
     // Step 5
     console.log('[client]: received [%s] bytes - CERTIFICATE - from: [%s]', message._raw.length, context.connection.serverAddress);
@@ -185,11 +187,15 @@ function connect(address, port) {
     }
 
     context.connection.encryption.serverPublicKey = message.publicKey.value;
+    context.connection.encryption.digest.in(message._raw);
   }
 
   function handleServerHelloDone(message, context) {
     // Step 7
     console.log('[client]: received [%s] bytes - SERVER_HELLO_DONE - from: [%s]', message._raw.length, context.connection.serverAddress);
+    
+    context.connection.encryption.digest.in(message._raw);
+    
     sendClientKeyExchange(context);
   }
 
@@ -272,7 +278,6 @@ function connect(address, port) {
     // Step 9
     console.log('[client]: sends [%s] bytes - CHANGE_CIPHER_SPEC - to: [%s]', message.length, context.connection.serverAddress);
     client.write(message);
-    context.connection.encryption.digest.in(message);
 
     sendClientHandshakeFinished(context);
   }
@@ -288,15 +293,15 @@ function connect(address, port) {
     const p1 = crypto.createHmac('sha256', context.connection.encryption.masterSecret).update(Buffer.concat([a1, seed])).digest();
     const verifyData = p1.subarray(0, 12);
 
+    console.log('[client]: verify data - %s', verifyData.toString('hex'));
+
     // todo: we should inffer this from the cipher suite instead of hardcoded
     let iv = crypto.randomBytes(16);
 
-    let encryptedMessageInput = Buffer.concat([
-      new messageBuilder()
+    let encryptedMessageInput = new messageBuilder()
         .add(_k.Annotations.HANDSHAKE_HEADER, { type: _k.HandshakeType.ClientHandshakeFinished, length: 12 })
-        .build(),
-      verifyData
-    ]);
+        .add(_k.Annotations.VERIFY_DATA, { data: verifyData })
+        .build();
 
     // todo: we should inffer this from the cipher suite instead of hardcoded
     const cipher = crypto

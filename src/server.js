@@ -24,6 +24,13 @@ function session() {
     this.serverRandom = null;
     this.privateKey = null;
     this.publicKey = null;
+    this.digest = {
+        value: Buffer.alloc(0),
+        in: (message) => {
+          const payload = message.subarray(_k.Dimensions.RecordHeader.Bytes);
+          this.digest.value = Buffer.concat([this.digest.value, payload]);
+        },
+      };
 
     return this;
 }
@@ -151,6 +158,7 @@ function createServer({ hostname = 'localhost', key, csr, cert } = {}) {
         // todo: check session
         context.session = new session();
         context.session.clientRandom = context.message[_k.Annotations.RANDOM]._raw;
+        context.session.digest.in(context.message._raw);
 
         // todo: improve session management
         sessions.push(context.session);
@@ -185,6 +193,7 @@ function createServer({ hostname = 'localhost', key, csr, cert } = {}) {
         console.log('[server]: send [%s] bytes - SERVER_HELLO - to: [%s]', message.buffer.length, context.remoteAddress);
         context.socket.write(message.buffer);
         context.session.serverRandom = message.data[_k.Annotations.RANDOM]._raw;
+        context.session.digest.in(message.buffer);
 
         sendCertificate(context);
     }
@@ -199,6 +208,7 @@ function createServer({ hostname = 'localhost', key, csr, cert } = {}) {
         // Step 5
         console.log('[server]: send [%s] bytes - CERTIFICATE - to: [%s]', message.length, context.remoteAddress);
         context.socket.write(message);
+        context.session.digest.in(message);
 
         sendServerKeyExchange(context);
     }
@@ -249,6 +259,7 @@ function createServer({ hostname = 'localhost', key, csr, cert } = {}) {
         // Step 6: server sends SERVER_KEY_EXCHANGE
         console.log('[server]: send [%s] bytes - SERVER_KEY_EXCHANGE - to: [%s]', message.length, context.remoteAddress);
         context.socket.write(message);
+        context.session.digest.in(message);
 
         sendServerHelloDone(context);
     }
@@ -262,12 +273,14 @@ function createServer({ hostname = 'localhost', key, csr, cert } = {}) {
         // Step 7: server sends SERVER_HELLO_DONE
         console.log('[server]: send [%s] bytes - SERVER_HELLO_DONE - to: [%s]', message.length, context.remoteAddress);
         context.socket.write(message);
+        context.session.digest.in(message);
     }
 
     function handleClientKeyExchange(context) {
         // Step 8
         console.log('[server]: received [%s] bytes - CLIENT_KEY_EXCHANGE - from: [%s]', context.message._raw.length, context.remoteAddress);
         context.session.clientPublicKey = context.message[_k.Annotations.PUBLIC_KEY].value;
+        context.session.digest.in(context.message._raw);
     }
 
     function handleClientChangeCipherSpec(context) {
@@ -324,6 +337,26 @@ function createServer({ hostname = 'localhost', key, csr, cert } = {}) {
     }
 
     function handleClientHandshakeFinished(context) {
+        // todo: compute digest and verify data
+        const handshakeDigest = context.session.digest.value;
+        // todo: we should inffer this from the cipher suite instead of hardcoded
+        const handshakeDigestHash = crypto.createHash('sha256').update(handshakeDigest).digest();
+        const seed = Buffer.concat([Buffer.from('client finished'), handshakeDigestHash]);
+        let a0 = seed; 
+        // todo: we should inffer this from the cipher suite instead of hardcoded
+        const a1 = crypto.createHmac('sha256', context.session.masterSecret).update(a0).digest();
+        const p1 = crypto.createHmac('sha256', context.session.masterSecret).update(Buffer.concat([a1, seed])).digest();
+        const verifyData = p1.subarray(0, 12);
+        console.log('[client]: verify data - %s', verifyData.toString('hex'));
+
+        if (verifyData.toString('hex') !== context.message[_k.Annotations.VERIFY_DATA].toString('hex')) {
+            console.log('[server]: verify data mismatch - [%s]', context.remoteAddress);
+            return alert(context, {
+                level: _k.AlertLevel.FATAL, 
+                description: _k.AlertDescription.HANDSHAKE_FAILURE
+            });
+        }
+
         // Step 10
         console.log('[server]: received - CLIENT_HANDSHAKE_FINISHED - from: [%s]', context.remoteAddress);
     }

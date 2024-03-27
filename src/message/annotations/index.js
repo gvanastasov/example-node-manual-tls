@@ -33,6 +33,7 @@ const modules = {
     [Annotations.SESSION_ID]: require('./session-id'),
     [Annotations.SIGNATURE]: require('./signature'),
     [Annotations.VERSION]: require('./version'),
+    [Annotations.VERIFY_DATA]: require('./verify-data'),
 }
 
 const create = function(annotation, args) {
