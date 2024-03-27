@@ -74,7 +74,8 @@ function createServer({ hostname = 'localhost', key, csr, cert } = {}) {
             }
             case _k.ContentType.ChangeCipherSpec:
             {
-                handles[contentType](context);   
+                handles[contentType](context);
+                break;
             }
             default: 
             {
