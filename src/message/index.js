@@ -96,6 +96,11 @@ const MessageTemplates = {
             _k.Annotations.HANDSHAKE_HEADER,
             _k.Annotations.VERIFY_DATA,
         ],
+        [_k.HandshakeType.Finished]: [
+            _k.Annotations.RECORD_HEADER,
+            _k.Annotations.HANDSHAKE_HEADER,
+            _k.Annotations.VERIFY_DATA,
+        ],
     },
     [_k.ContentType.ChangeCipherSpec]: [
         _k.Annotations.RECORD_HEADER,
@@ -259,7 +264,7 @@ function parseMessage(hexString, encrypted = false, decryptFunc = null) {
         let decryptedMessagePayload = decryptFunc({ iv: message[_k.Annotations.ENCRYPTION_IV], data: message[_k.Annotations.ENCRYPTED_DATA] });
         let decryptedMessage = parseMessage(Buffer.concat([message[_k.Annotations.RECORD_HEADER]._raw, decryptedMessagePayload]));
 
-        return { ...message, ...decryptedMessage };
+        return { ...message, ...decryptedMessage, _raw: hexString };
     }
 
     return message;

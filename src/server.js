@@ -4,7 +4,8 @@ const crypto = require('crypto');
 
 const { generateRandomBytes } = require('./utils/hex');
 const { resolveHashingFunction, resolveEncryptionAlgorithm } = require('./utils/crypto');
-const { messageBuilder, parseMessage, _k  } = require('./message');
+const { messageBuilder, parseMessage, _k } = require('./message');
+const { handshakeDigest } = require('./message/handshake-digest');
 
 // move out of here
 function session() {
@@ -24,13 +25,7 @@ function session() {
     this.serverRandom = null;
     this.privateKey = null;
     this.publicKey = null;
-    this.digest = {
-        value: Buffer.alloc(0),
-        in: (message) => {
-          const payload = message.subarray(_k.Dimensions.RecordHeader.Bytes);
-          this.digest.value = Buffer.concat([this.digest.value, payload]);
-        },
-      };
+    this.digest = new handshakeDigest();
 
     return this;
 }
@@ -294,16 +289,12 @@ function createServer({ hostname = 'localhost', key, csr, cert } = {}) {
     }
 
     function handleClientHandshakeFinished(context) {
-        // todo: compute digest and verify data
-        const handshakeDigest = context.session.digest.value;
         // todo: we should inffer this from the cipher suite instead of hardcoded
-        const handshakeDigestHash = crypto.createHash('sha256').update(handshakeDigest).digest();
-        const seed = Buffer.concat([Buffer.from('client finished'), handshakeDigestHash]);
-        let a0 = seed; 
-        // todo: we should inffer this from the cipher suite instead of hardcoded
-        const a1 = crypto.createHmac('sha256', context.session.masterSecret).update(a0).digest();
-        const p1 = crypto.createHmac('sha256', context.session.masterSecret).update(Buffer.concat([a1, seed])).digest();
-        const verifyData = p1.subarray(0, 12);
+        const verifyData = context.session.digest.compute({
+            hashingFunction: 'sha256',
+            seedData: 'client finished',
+            secret: context.session.masterSecret,
+        });
 
         if (verifyData.toString('hex') !== context.message[_k.Annotations.VERIFY_DATA].toString('hex')) {
             console.log('[server]: verify data mismatch - [%s]', context.remoteAddress);
@@ -316,6 +307,7 @@ function createServer({ hostname = 'localhost', key, csr, cert } = {}) {
         // Step 10
         console.log('[server]: received - CLIENT_HANDSHAKE_FINISHED - from: [%s]', context.remoteAddress);
 
+        context.session.digest.in(context.message._raw);
         sendChangeCipherSpec(context);
     }
 
@@ -332,7 +324,38 @@ function createServer({ hostname = 'localhost', key, csr, cert } = {}) {
     }
 
     function sendServerHandshakeFinished(context) {
-        
+        // todo: we should inffer this from the cipher suite instead of hardcoded
+        const verifyData = context.session.digest.compute({
+            hashingFunction: 'sha256',
+            seedData: 'server finished',
+            secret: context.session.masterSecret
+        });
+
+        // todo: we should inffer this from the cipher suite instead of hardcoded
+        let iv = crypto.randomBytes(16);
+
+        let encryptedMessageInput = new messageBuilder()
+            .add(_k.Annotations.HANDSHAKE_HEADER, { type: _k.HandshakeType.Finished, length: 12 })
+            .add(_k.Annotations.VERIFY_DATA, { data: verifyData })
+            .build();
+
+        // todo: we should inffer this from the cipher suite instead of hardcoded
+        const cipher = crypto
+            .createCipheriv('aes-128-cbc', context.session.client_write_key, iv);
+
+        let encryptedMessage = cipher.update(encryptedMessageInput);
+        encryptedMessage = Buffer.concat([encryptedMessage, cipher.final()]);
+
+        let message = new messageBuilder()
+            .add(_k.Annotations.RECORD_HEADER, { contentType: _k.ContentType.Handshake, version: serverConfig.version })
+            // todo: we should inffer this from the cipher suite instead of hardcoded
+            .add(_k.Annotations.ENCRYPTION_IV, { vector: iv })
+            .add(_k.Annotations.ENCRYPTED_DATA, { data: encryptedMessage })
+            .build();
+
+        // Step 12: server sends SERVER_HANDSHAKE_FINISHED
+        console.log('[server]: send [%s] bytes - SERVER_HANDSHAKE_FINISHED - to: [%s]', message.length, context.remoteAddress);
+        context.socket.write(message);
     }
 
     function alert(context, { level, description }) {

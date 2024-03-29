@@ -3,6 +3,7 @@ const crypto = require('crypto');
 
 const { resolveHashingFunction, resolveEncryptionAlgorithm } = require('./utils/crypto');
 const { messageBuilder, parseMessage, _k } = require('./message');
+const { handshakeDigest } = require('./message/handshake-digest');
 
 function clientContext({ serverAddress }) {
   this.connection = {
@@ -20,13 +21,7 @@ function clientContext({ serverAddress }) {
       clientPrivateKey: null,
       clientPublicKey: null,
       clientWriteKey: null,
-      digest: {
-        value: Buffer.alloc(0),
-        in: (message) => {
-          const payload = message.subarray(_k.Dimensions.RecordHeader.Bytes);
-          this.connection.encryption.digest.value = Buffer.concat([this.connection.encryption.digest.value, payload]);
-        }
-      },
+      digest: new handshakeDigest(),
     },
     session: {
       id: null,
@@ -56,6 +51,7 @@ function connect(address, port) {
       [_k.HandshakeType.Certificate]: handleCertificate,
       [_k.HandshakeType.ServerKeyExchange]: handleServerKeyExchange,
       [_k.HandshakeType.DoneHello]: handleServerHelloDone,
+      [_k.HandshakeType.Finished]: handleServerHandshakeFinished,
     },
     [_k.ContentType.ChangeCipherSpec]: handleServerChangeCipherSpec
   }
@@ -69,6 +65,11 @@ function connect(address, port) {
           // todo: handle unknown handshake types
           handles[contentType][handshakeType](message, context);
           break;
+        }
+      case _k.ContentType.ChangeCipherSpec:
+        {
+            handles[contentType](message, context);
+            break;
         }
       case _k.ContentType.Alert:
         {
@@ -124,7 +125,7 @@ function connect(address, port) {
     }
 
     function decrypt({ iv, data }) {
-      const decipher = crypto.createDecipheriv('aes-128-cbc', context.session.client_write_key, iv);
+      const decipher = crypto.createDecipheriv('aes-128-cbc', context.connection.encryption.client_write_key, iv);
       let decrypted = decipher.update(data);
       decrypted = Buffer.concat([decrypted, decipher.final()]);
       return decrypted;
@@ -293,17 +294,12 @@ function connect(address, port) {
   }
 
   function sendClientHandshakeFinished(context) {
-    const handshakeDigest = context.connection.encryption.digest.value;
     // todo: we should inffer this from the cipher suite instead of hardcoded
-    const handshakeDigestHash = crypto.createHash('sha256').update(handshakeDigest).digest();
-    const seed = Buffer.concat([Buffer.from('client finished'), handshakeDigestHash]);
-    let a0 = seed; 
-    // todo: we should inffer this from the cipher suite instead of hardcoded
-    const a1 = crypto.createHmac('sha256', context.connection.encryption.masterSecret).update(a0).digest();
-    const p1 = crypto.createHmac('sha256', context.connection.encryption.masterSecret).update(Buffer.concat([a1, seed])).digest();
-    const verifyData = p1.subarray(0, 12);
-
-    console.log('[client]: verify data - %s', verifyData.toString('hex'));
+    const verifyData = context.connection.encryption.digest.compute({
+      hashingFunction: 'sha256',
+      seedData: 'client finished',
+      secret: context.connection.encryption.masterSecret,
+    });
 
     // todo: we should inffer this from the cipher suite instead of hardcoded
     let iv = crypto.randomBytes(16);
@@ -329,13 +325,34 @@ function connect(address, port) {
 
     // Step 10
     console.log('[client]: sends [%s] bytes - CLIENT_HANDSHAKE_FINISHED - to: [%s]', message.length, context.connection.serverAddress);
+    context.connection.encryption.digest.in(message);
+
     client.write(message);
   }
 
   function handleServerChangeCipherSpec(message, context) {
     // Step 11
-    console.log('[client]: received [%s] bytes - CHANGE_CIPHER_SPEC - from: [%s]', message.length, context.connection.serverAddress);
+    console.log('[client]: received [%s] bytes - CHANGE_CIPHER_SPEC - from: [%s]', message._raw.length, context.connection.serverAddress);
     context.connection.encryption.serverEncrypted = true;
+  }
+
+  function handleServerHandshakeFinished(message, context) {
+    // Step 12
+    console.log('[client]: received [%s] bytes - SERVER_HANDSHAKE_FINISHED - from: [%s]', message._raw.length, context.connection.serverAddress);
+
+    const verifyData = context.connection.encryption.digest.compute({
+      hashingFunction: 'sha256',
+      seedData: 'server finished',
+      secret: context.connection.encryption.masterSecret,
+    });
+
+    const serverVerifyData = message[_k.Annotations.VERIFY_DATA];
+    if (verifyData.toString('hex') !== serverVerifyData.toString('hex')) {
+      console.error('[client]: server handshake failed - invalid verify data');
+      client.end();
+    }
+
+    console.log('[client]: handshake complete');
   }
 
   function handleAlert(message) {
