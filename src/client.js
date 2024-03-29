@@ -15,6 +15,7 @@ function clientContext({ serverAddress }) {
       serverRandom: null,
       serverPublicCert: null,
       serverPublicKey: null,
+      serverEncrypted: false,
       clientRandom: null,
       clientPrivateKey: null,
       clientPublicKey: null,
@@ -56,6 +57,7 @@ function connect(address, port) {
       [_k.HandshakeType.ServerKeyExchange]: handleServerKeyExchange,
       [_k.HandshakeType.DoneHello]: handleServerHelloDone,
     },
+    [_k.ContentType.ChangeCipherSpec]: handleServerChangeCipherSpec
   }
 
   function handleMessage(message, context) {
@@ -114,10 +116,18 @@ function connect(address, port) {
           let messageData = Uint8Array.prototype.slice.call(buffer, 0, messageLength + _k.Dimensions.RecordHeader.Bytes);
           buffer = buffer.subarray(messageLength + _k.Dimensions.RecordHeader.Bytes);
     
-          const message = parseMessage(messageData);
+          // todo: simplify the interface here
+          const message = parseMessage(messageData, context.connection.encryption.serverEncrypted, decrypt);
           handleMessage(message, context);
         }
       }
+    }
+
+    function decrypt({ iv, data }) {
+      const decipher = crypto.createDecipheriv('aes-128-cbc', context.session.client_write_key, iv);
+      let decrypted = decipher.update(data);
+      decrypted = Buffer.concat([decrypted, decipher.final()]);
+      return decrypted;
     }
   });
 
@@ -310,16 +320,6 @@ function connect(address, port) {
     let encryptedMessage = cipher.update(encryptedMessageInput);
     encryptedMessage = Buffer.concat([encryptedMessage, cipher.final()]);
 
-    // Encrypt the message
-    // const cipher = crypto.createCipheriv('aes-128-cbc', context.connection.encryption.client_write_key, iv);
-    // let encryptedMessage = cipher.update(encryptedMessageInput);
-    // encryptedMessage = Buffer.concat([encryptedMessage, cipher.final()]);
-
-    // // Decrypt the message
-    // const decipher = crypto.createDecipheriv('aes-128-cbc', context.connection.encryption.client_write_key, iv);
-    // let decryptedMessage = decipher.update(encryptedMessage);
-    // decryptedMessage = Buffer.concat([decryptedMessage, decipher.final()]);
-
     let message = new messageBuilder()
       .add(_k.Annotations.RECORD_HEADER, { contentType: _k.ContentType.Handshake, version: clientConfig.tlsVersion })
       // todo: we should inffer this from the cipher suite instead of hardcoded
@@ -330,6 +330,12 @@ function connect(address, port) {
     // Step 10
     console.log('[client]: sends [%s] bytes - CLIENT_HANDSHAKE_FINISHED - to: [%s]', message.length, context.connection.serverAddress);
     client.write(message);
+  }
+
+  function handleServerChangeCipherSpec(message, context) {
+    // Step 11
+    console.log('[client]: received [%s] bytes - CHANGE_CIPHER_SPEC - from: [%s]', message.length, context.connection.serverAddress);
+    context.connection.encryption.serverEncrypted = true;
   }
 
   function handleAlert(message) {

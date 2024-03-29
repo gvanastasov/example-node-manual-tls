@@ -118,8 +118,9 @@ function createServer({ hostname = 'localhost', key, csr, cert } = {}) {
                     let messageData = Uint8Array.prototype.slice.call(buffer, 0, messageLength + _k.Dimensions.RecordHeader.Bytes);
                     buffer = buffer.subarray(messageLength + _k.Dimensions.RecordHeader.Bytes);
                     
+                    // todo: simplify the interface here
                     context.message = parseMessage(
-                        messageData, 
+                        messageData,
                         context.session?.clientEncrypted, decrypt);
                     handleMessage(context);
                 }
@@ -289,52 +290,7 @@ function createServer({ hostname = 'localhost', key, csr, cert } = {}) {
         console.log('[server]: received - CHANGE_CIPHER_SPEC - from: [%s]', context.remoteAddress);
         context.session.clientEncrypted = true;
 
-        const preMasterKey = crypto.diffieHellman({
-            privateKey: context.session.privateKey,
-            publicKey: crypto.createPublicKey({
-                key: context.session.clientPublicKey,
-                format: 'der',
-                type: 'spki'
-            })
-        });
-
-        const seed = Buffer.concat([
-            Buffer.from('master secret'), 
-            context.session.clientRandom,
-            context.session.serverRandom
-          ]);
-
-          const a0 = seed;
-          const a1 = crypto.createHmac('sha256', preMasterKey).update(a0).digest();
-          const a2 = crypto.createHmac('sha256', preMasterKey).update(a1).digest();
-      
-          const p1 = crypto.createHmac('sha256', preMasterKey).update(Buffer.concat([a1, seed])).digest();
-          const p2 = crypto.createHmac('sha256', preMasterKey).update(Buffer.concat([a2, seed])).digest();
-      
-          context.session.masterSecret = Buffer.concat([p1.subarray(0, 32), p2.subarray(0, 16)]);
-      
-          const seedKE = Buffer.concat([
-              Buffer.from('key expansion'),
-              context.session.clientRandom,
-              context.session.serverRandom
-          ]);
-      
-          const pValues = [];
-          let a = seedKE;
-          while (pValues.length < 4) {
-              a = crypto.createHmac('sha256', context.session.masterSecret).update(a).digest();
-              pValues.push(crypto.createHmac('sha256', context.session.masterSecret).update(Buffer.concat([a, seedKE])).digest());
-          }
-      
-          // Concatenate all the p values to obtain a single buffer p
-          const p = Buffer.concat(pValues);
-      
-          context.session.client_write_mac_key = p.subarray(0, 20);
-          context.session.server_write_mac_key = p.subarray(20, 40);
-          context.session.client_write_key = p.subarray(40, 56);
-          context.session.server_write_key = p.subarray(56, 72);
-          context.session.client_write_iv = p.subarray(72, 88);
-          context.session.server_write_iv = p.subarray(88, 104);
+        computeEncryptionKeys(context.session);
     }
 
     function handleClientHandshakeFinished(context) {
@@ -348,7 +304,6 @@ function createServer({ hostname = 'localhost', key, csr, cert } = {}) {
         const a1 = crypto.createHmac('sha256', context.session.masterSecret).update(a0).digest();
         const p1 = crypto.createHmac('sha256', context.session.masterSecret).update(Buffer.concat([a1, seed])).digest();
         const verifyData = p1.subarray(0, 12);
-        console.log('[client]: verify data - %s', verifyData.toString('hex'));
 
         if (verifyData.toString('hex') !== context.message[_k.Annotations.VERIFY_DATA].toString('hex')) {
             console.log('[server]: verify data mismatch - [%s]', context.remoteAddress);
@@ -360,6 +315,24 @@ function createServer({ hostname = 'localhost', key, csr, cert } = {}) {
 
         // Step 10
         console.log('[server]: received - CLIENT_HANDSHAKE_FINISHED - from: [%s]', context.remoteAddress);
+
+        sendChangeCipherSpec(context);
+    }
+
+    function sendChangeCipherSpec(context) {
+        const message = messageBuilder()
+            .add(_k.Annotations.RECORD_HEADER, { contentType: _k.ContentType.ChangeCipherSpec, version: serverConfig.version })
+            .build();
+
+        // Step 11: server sends CHANGE_CIPHER_SPEC
+        console.log('[server]: send [%s] bytes - CHANGE_CIPHER_SPEC - to: [%s]', message.length, context.remoteAddress);
+        context.socket.write(message);
+
+        sendServerHandshakeFinished(context);
+    }
+
+    function sendServerHandshakeFinished(context) {
+        
     }
 
     function alert(context, { level, description }) {
@@ -369,6 +342,55 @@ function createServer({ hostname = 'localhost', key, csr, cert } = {}) {
             .build();
         context.socket.write(message);
         context.socket.end();
+    }
+
+    function computeEncryptionKeys(session) {
+        const preMasterKey = crypto.diffieHellman({
+            privateKey: session.privateKey,
+            publicKey: crypto.createPublicKey({
+                key: session.clientPublicKey,
+                format: 'der',
+                type: 'spki'
+            })
+        });
+
+        const seed = Buffer.concat([
+            Buffer.from('master secret'), 
+            session.clientRandom,
+            session.serverRandom
+        ]);
+
+        const a0 = seed;
+        const a1 = crypto.createHmac('sha256', preMasterKey).update(a0).digest();
+        const a2 = crypto.createHmac('sha256', preMasterKey).update(a1).digest();
+    
+        const p1 = crypto.createHmac('sha256', preMasterKey).update(Buffer.concat([a1, seed])).digest();
+        const p2 = crypto.createHmac('sha256', preMasterKey).update(Buffer.concat([a2, seed])).digest();
+    
+        session.masterSecret = Buffer.concat([p1.subarray(0, 32), p2.subarray(0, 16)]);
+    
+        const seedKE = Buffer.concat([
+            Buffer.from('key expansion'),
+            session.clientRandom,
+            session.serverRandom
+        ]);
+    
+        const pValues = [];
+        let a = seedKE;
+        while (pValues.length < 4) {
+            a = crypto.createHmac('sha256', session.masterSecret).update(a).digest();
+            pValues.push(crypto.createHmac('sha256', session.masterSecret).update(Buffer.concat([a, seedKE])).digest());
+        }
+    
+        // Concatenate all the p values to obtain a single buffer p
+        const p = Buffer.concat(pValues);
+    
+        session.client_write_mac_key = p.subarray(0, 20);
+        session.server_write_mac_key = p.subarray(20, 40);
+        session.client_write_key = p.subarray(40, 56);
+        session.server_write_key = p.subarray(56, 72);
+        session.client_write_iv = p.subarray(72, 88);
+        session.server_write_iv = p.subarray(88, 104);
     }
 
     // todo: move to utils and rename to find first common or w/e
