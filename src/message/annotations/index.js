@@ -1,5 +1,6 @@
 const Annotations = {
     ALERT: 'alert',
+    APPLICATION_DATA: 'applicationData',
     CERTIFICATE: 'certificate',
     CIPHER_SUITES: 'cipherSuites',
     COMPRESSION_METHODS: 'compressionMethods',
@@ -19,6 +20,7 @@ const Annotations = {
 
 const modules = {
     [Annotations.ALERT]: require('./alert'),
+    [Annotations.APPLICATION_DATA]: require('./application-data'),
     [Annotations.CERTIFICATE]: require('./certificate'),
     [Annotations.CIPHER_SUITES]: require('./cipher-suites'),
     [Annotations.COMPRESSION_METHODS]: require('./compression-methods'),

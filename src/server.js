@@ -55,6 +55,7 @@ function createServer({ hostname = 'localhost', key, csr, cert } = {}) {
             [_k.HandshakeType.ClientHandshakeFinished]: handleClientHandshakeFinished,
         },
         [_k.ContentType.ChangeCipherSpec]: handleClientChangeCipherSpec,
+        [_k.ContentType.ApplicationData]: handleClientApplicationData,
     }
 
     function handleMessage(context) {
@@ -67,6 +68,7 @@ function createServer({ hostname = 'localhost', key, csr, cert } = {}) {
                 handles[contentType][handshakeType](context);
                 break;
             }
+            case _k.ContentType.ApplicationData:
             case _k.ContentType.ChangeCipherSpec:
             {
                 handles[contentType](context);
@@ -331,30 +333,39 @@ function createServer({ hostname = 'localhost', key, csr, cert } = {}) {
             secret: context.session.masterSecret
         });
 
-        // todo: we should inffer this from the cipher suite instead of hardcoded
-        let iv = crypto.randomBytes(16);
-
-        let encryptedMessageInput = new messageBuilder()
+        let data = new messageBuilder()
             .add(_k.Annotations.HANDSHAKE_HEADER, { type: _k.HandshakeType.Finished, length: 12 })
             .add(_k.Annotations.VERIFY_DATA, { data: verifyData })
             .build();
 
-        // todo: we should inffer this from the cipher suite instead of hardcoded
-        const cipher = crypto
-            .createCipheriv('aes-128-cbc', context.session.client_write_key, iv);
-
-        let encryptedMessage = cipher.update(encryptedMessageInput);
-        encryptedMessage = Buffer.concat([encryptedMessage, cipher.final()]);
-
-        let message = new messageBuilder()
-            .add(_k.Annotations.RECORD_HEADER, { contentType: _k.ContentType.Handshake, version: serverConfig.version })
-            // todo: we should inffer this from the cipher suite instead of hardcoded
-            .add(_k.Annotations.ENCRYPTION_IV, { vector: iv })
-            .add(_k.Annotations.ENCRYPTED_DATA, { data: encryptedMessage })
-            .build();
+        const message = encrypt({ context, contentType: _k.ContentType.Handshake, data });
 
         // Step 12: server sends SERVER_HANDSHAKE_FINISHED
         console.log('[server]: send [%s] bytes - SERVER_HANDSHAKE_FINISHED - to: [%s]', message.length, context.remoteAddress);
+        context.socket.write(message);
+    }
+
+    function handleClientApplicationData(context) {
+        const data = context.message[_k.Annotations.APPLICATION_DATA].toString('utf8');
+        // Step 13
+        console.log('[server]: received [%s] bytes - APPLICATION_DATA - from: [%s]', context.message._raw.length, context.remoteAddress);
+        console.log('[server]: received: %s', data);
+
+        if (data === 'ping') {
+            console.log('[server]: sending pong...');
+            sendApplicationData(context, 'pong');
+        }
+    }
+
+    function sendApplicationData(context, data) {
+        const buffer = new messageBuilder()
+          .add(_k.Annotations.APPLICATION_DATA, { data })
+          .build();
+    
+        const message = encrypt({ context, contentType: _k.ContentType.ApplicationData, data: buffer });
+    
+        // Step 13
+        console.log('[server]: send [%s] bytes - APPLICATION_DATA - to: [%s]', message.length, context.remoteAddress);
         context.socket.write(message);
     }
 
@@ -365,6 +376,26 @@ function createServer({ hostname = 'localhost', key, csr, cert } = {}) {
             .build();
         context.socket.write(message);
         context.socket.end();
+    }
+
+    function encrypt({ context, contentType, data }) {
+        // todo: we should inffer this from the cipher suite instead of hardcoded
+        const iv = crypto.randomBytes(16);
+    
+        // todo: we should inffer this from the cipher suite instead of hardcoded
+        const cipher = crypto
+          .createCipheriv('aes-128-cbc', context.session.client_write_key, iv);
+    
+        let encryptedMessage = cipher.update(data);
+        encryptedMessage = Buffer.concat([encryptedMessage, cipher.final()]);
+      
+        let message = new messageBuilder()
+            .add(_k.Annotations.RECORD_HEADER, { contentType, version: serverConfig.version })
+            .add(_k.Annotations.ENCRYPTION_IV, { vector: iv })
+            .add(_k.Annotations.ENCRYPTED_DATA, { data: encryptedMessage })
+            .build();
+          
+        return message;
     }
 
     function computeEncryptionKeys(session) {

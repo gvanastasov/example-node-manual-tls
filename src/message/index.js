@@ -105,6 +105,9 @@ const MessageTemplates = {
     [_k.ContentType.ChangeCipherSpec]: [
         _k.Annotations.RECORD_HEADER,
     ],
+    [_k.ContentType.ApplicationData]: [
+        _k.Annotations.APPLICATION_DATA,
+    ],
     [_k.ContentType.Alert]: [
         _k.Annotations.RECORD_HEADER,
         _k.Annotations.ALERT,
@@ -223,6 +226,11 @@ function parseMessage(hexString, encrypted = false, decryptFunc = null) {
                 break;
             }
             case ContentType.ChangeCipherSpec:
+            {
+                template = MessageTemplates[contentType];
+                break;
+            }
+            case ContentType.ApplicationData:
             {
                 template = MessageTemplates[contentType];
                 break;

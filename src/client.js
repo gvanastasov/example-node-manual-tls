@@ -53,7 +53,8 @@ function connect(address, port) {
       [_k.HandshakeType.DoneHello]: handleServerHelloDone,
       [_k.HandshakeType.Finished]: handleServerHandshakeFinished,
     },
-    [_k.ContentType.ChangeCipherSpec]: handleServerChangeCipherSpec
+    [_k.ContentType.ChangeCipherSpec]: handleServerChangeCipherSpec,
+    [_k.ContentType.ApplicationData]: handleServerApplicationData,
   }
 
   function handleMessage(message, context) {
@@ -70,6 +71,11 @@ function connect(address, port) {
         {
             handles[contentType](message, context);
             break;
+        }
+      case _k.ContentType.ApplicationData:
+        {
+          handles[contentType](message, context);
+          break;
         }
       case _k.ContentType.Alert:
         {
@@ -301,27 +307,12 @@ function connect(address, port) {
       secret: context.connection.encryption.masterSecret,
     });
 
-    // todo: we should inffer this from the cipher suite instead of hardcoded
-    let iv = crypto.randomBytes(16);
-
-    let encryptedMessageInput = new messageBuilder()
-        .add(_k.Annotations.HANDSHAKE_HEADER, { type: _k.HandshakeType.ClientHandshakeFinished, length: 12 })
-        .add(_k.Annotations.VERIFY_DATA, { data: verifyData })
-        .build();
-
-    // todo: we should inffer this from the cipher suite instead of hardcoded
-    const cipher = crypto
-      .createCipheriv('aes-128-cbc', context.connection.encryption.client_write_key, iv);
-
-    let encryptedMessage = cipher.update(encryptedMessageInput);
-    encryptedMessage = Buffer.concat([encryptedMessage, cipher.final()]);
-
-    let message = new messageBuilder()
-      .add(_k.Annotations.RECORD_HEADER, { contentType: _k.ContentType.Handshake, version: clientConfig.tlsVersion })
-      // todo: we should inffer this from the cipher suite instead of hardcoded
-      .add(_k.Annotations.ENCRYPTION_IV, { vector: iv })
-      .add(_k.Annotations.ENCRYPTED_DATA, { data: encryptedMessage })
+    const data = new messageBuilder()
+      .add(_k.Annotations.HANDSHAKE_HEADER, { type: _k.HandshakeType.ClientHandshakeFinished, length: 12 })
+      .add(_k.Annotations.VERIFY_DATA, { data: verifyData })
       .build();
+
+    const message = encrypt({ context, contentType: _k.ContentType.Handshake , data });
 
     // Step 10
     console.log('[client]: sends [%s] bytes - CLIENT_HANDSHAKE_FINISHED - to: [%s]', message.length, context.connection.serverAddress);
@@ -352,7 +343,32 @@ function connect(address, port) {
       client.end();
     }
 
-    console.log('[client]: handshake complete');
+    console.log('[client]: handshake complete.');
+
+    console.log('[server]: sending ping...');
+    sendApplicationData(context, 'ping');
+  }
+
+  function sendApplicationData(context, data) {
+    const buffer = new messageBuilder()
+      .add(_k.Annotations.APPLICATION_DATA, { data })
+      .build();
+
+    const message = encrypt({ context, contentType: _k.ContentType.ApplicationData, data: buffer });
+
+    // Step 13
+    console.log('[client]: sends [%s] bytes - APPLICATION_DATA - to: [%s]', message.length, context.connection.serverAddress);
+    client.write(message);
+  }
+
+  function handleServerApplicationData(message, context) {
+    const data = message[_k.Annotations.APPLICATION_DATA].toString('utf8');
+    console.log('[client]: received [%s] bytes - APPLICATION_DATA - from: [%s]', message._raw.length, context.connection.serverAddress);
+
+    if (data === 'pong') {
+      console.log('[client]: received pong from server - closing connection...');
+      client.end();
+    }
   }
 
   function handleAlert(message) {
@@ -361,6 +377,26 @@ function connect(address, port) {
       message.alert.level.name, 
       message.alert.description.name
     );
+  }
+
+  function encrypt({ context, contentType, data }) {
+    // todo: we should inffer this from the cipher suite instead of hardcoded
+    const iv = crypto.randomBytes(16);
+
+    // todo: we should inffer this from the cipher suite instead of hardcoded
+    const cipher = crypto
+      .createCipheriv('aes-128-cbc', context.connection.encryption.client_write_key, iv);
+
+    let encryptedMessage = cipher.update(data);
+    encryptedMessage = Buffer.concat([encryptedMessage, cipher.final()]);
+  
+    const message = new messageBuilder()
+        .add(_k.Annotations.RECORD_HEADER, { contentType, version: clientConfig.tlsVersion })
+        .add(_k.Annotations.ENCRYPTION_IV, { vector: iv })
+        .add(_k.Annotations.ENCRYPTED_DATA, { data: encryptedMessage })
+        .build();
+      
+    return message;
   }
 
   client.on('end', () => {
