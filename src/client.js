@@ -131,7 +131,7 @@ function connect(address, port) {
     }
 
     function decrypt({ iv, data }) {
-      const decipher = crypto.createDecipheriv('aes-128-cbc', context.connection.encryption.client_write_key, iv);
+      const decipher = crypto.createDecipheriv('aes-128-cbc', context.connection.encryption.server_write_key, iv);
       let decrypted = decipher.update(data);
       decrypted = Buffer.concat([decrypted, decipher.final()]);
       return decrypted;

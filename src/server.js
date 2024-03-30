@@ -384,7 +384,7 @@ function createServer({ hostname = 'localhost', key, csr, cert } = {}) {
     
         // todo: we should inffer this from the cipher suite instead of hardcoded
         const cipher = crypto
-          .createCipheriv('aes-128-cbc', context.session.client_write_key, iv);
+          .createCipheriv('aes-128-cbc', context.session.server_write_key, iv);
     
         let encryptedMessage = cipher.update(data);
         encryptedMessage = Buffer.concat([encryptedMessage, cipher.final()]);
