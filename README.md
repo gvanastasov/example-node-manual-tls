@@ -1,4 +1,4 @@
-# Example NODE TLS
+# Example NODE manual TLS
 A dummy example of TLS implementation. Check bellow instructions on how to get started, whats included, whats the story play (with Bob and Alice), find references in code and in general get familiar with how TLS 1.2 works. 
 
 `Reminder don't use this in production!`
